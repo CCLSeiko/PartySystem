@@ -11,6 +11,13 @@
 4. **易於維護**：程式碼簡潔，學習曲線平緩
 5. **異步支援**：原生支援 async/await，適合 I/O 密集型應用
 
+**技術細節：**
+- **版本**：Python 3.11+
+- **依賴管理**：Poetry 或 pip + requirements.txt
+- **資料庫連線**：SQLAlchemy 2.0+ (async 支援)
+- **驗證**：FastAPI 的 OAuth2PasswordBearer
+- **設定管理**：pydantic-settings
+
 **替代方案：**
 - Django：功能完整，但較重，適合大型專案
 - Node.js (Express)：JavaScript 生態系豐富，但非類型安全
@@ -39,37 +46,27 @@
 
 ## 前端技術
 
-### 框架選擇：React (TypeScript)
+### 框架選擇：Next.js (React)
 
 **選擇理由：**
-1. **生態系豐富**：大量開源元件與工具
-2. **效能良好**：虛擬 DOM 優化渲染
-3. **TypeScript 支援**：型別安全，減少錯誤
-4. **社群活躍**：問題容易找到解答
+1. **全棧框架**：支援伺服器端渲染 (SSR) 和靜態生成 (SSG)
+2. **效能優異**：自動程式碼分割、圖片優化
+3. **TypeScript 支援**：內建 TypeScript 支援，型別安全
+4. **路由系統**：基於檔案系統的路由，易於使用
+5. **API Routes**：可在同一專案中處理後端 API
+6. **生態系豐富**：基於 React，擁有龐大的生態系
+
+**技術細節：**
+- **版本**：Next.js 14+ (App Router)
+- **語言**：TypeScript
+- **狀態管理**：Zustand 或 React Context
+- **UI 元件庫**：Shadcn/UI 或 Material-UI
+- **測試**：Jest + React Testing Library
+- **部署**：Vercel 或 Google Cloud Run
 
 **替代方案：**
 - Vue.js：學習曲線較平緩，適合中小型專案
 - Angular：功能完整，但較重
-
-### 狀態管理：Redux Toolkit
-
-**選擇理由：**
-1. **官方推薦**：Redux 官方推出的工具包
-2. **簡化 Redux**：減少樣板程式碼
-3. **效能優化**：內建快取與非同步處理
-
-### UI 元件庫：Material-UI (MUI)
-
-**選擇理由：**
-1. **Material Design**：符合 Google 設計規範
-2. **元件豐富**：提供完整的 UI 元件
-3. **主題化**：易於自訂主題
-
-### 測試：Jest + React Testing Library
-
-**選擇理由：**
-1. **Jest**：Facebook 開發的測試框架，功能完整
-2. **React Testing Library**：以使用者角度測試元件
 
 ## 資料庫
 
@@ -80,6 +77,13 @@
 2. **功能完整**：支援 JSON、全文搜尋、地理空間資料
 3. **效能良好**：適合中小型到大型專案
 4. **可靠性高**：事務處理與備份機制完善
+5. **與 FastAPI 整合良好**：SQLAlchemy 原生支援
+
+**技術細節：**
+- **版本**：PostgreSQL 15+
+- **連線池**：使用 asyncpg 或 SQLAlchemy 連線池
+- ** migrations**：Alembic
+- **備份**：pg_dump 或雲端備份服務
 
 **替代方案：**
 - MySQL：效能良好，但功能較 PostgreSQL 少
@@ -92,55 +96,58 @@
 2. **多功能**：支援快取、訊息佇列、排行榜等
 3. **易於使用**：簡單的 API
 
-### 檔案儲存：AWS S3
+### 檔案儲存：Google Cloud Storage
 
 **選擇理由：**
 1. **高可用性**：99.999999999% 耐久性
 2. **可擴充性**：自動擴充儲存空間
 3. **成本效益**：按使用量計費
-4. **整合性**：與 AWS 服務無縫整合
+4. **整合性**：與 GCP 服務無縫整合
+5. **多區域儲存**：支援資料多地備份
+
+### 監控：Google Cloud Monitoring
+
+**選擇理由：**
+1. **整合性**：與 GCP 服務無縫整合
+2. **監控指標**：提供豐富的監控指標
+3. **告警功能**：可設定告警規則
+4. **儀表板**：自訂監控儀表板
 
 ## 雲端服務
 
-### 雲端平台：AWS (Amazon Web Services)
+### 雲端平台：Google Cloud Platform (GCP)
 
 **選擇理由：**
-1. **市場領導者**：最大的雲端服務提供商
-2. **服務完整**：超過 200 項服務
-3. **全球基礎設施**：多個區域與可用區
-4. **成熟穩定**：服務穩定性高
+1. **強大的 AI/ML 服務**：Vertex AI、Cloud Vision 等
+2. **全球基礎設施**：多個區域與可用區
+3. **Kubernetes 原生**：GKE (Google Kubernetes Engine) 是 Kubernetes 的發源地
+4. **成本效益**：按使用量計費，持續使用折扣
+5. **與 BigQuery 整合**：適合大數據分析
+
+**主要服務：**
+- **Compute**：Compute Engine (VM)、Cloud Run (Serverless)
+- **資料庫**：Cloud SQL (PostgreSQL)、Firestore
+- **儲存**：Cloud Storage (S3 替代品)
+- **網路**：Cloud Load Balancing、Cloud CDN
+- **監控**：Cloud Monitoring、Cloud Logging
+- **CI/CD**：Cloud Build、Artifact Registry
 
 **替代方案：**
-- Google Cloud Platform：AI/ML 服務強大
+- AWS：市場領導者，服務最完整
 - Microsoft Azure：與 Microsoft 生態系整合良好
+5. **與 BigQuery 整合**：適合大數據分析
 
-### 容器 orchestration：AWS EKS (Elastic Kubernetes Service)
+**主要服務：**
+- **Compute**：Compute Engine (VM)、Cloud Run (Serverless)
+- **資料庫**：Cloud SQL (PostgreSQL)、Firestore
+- **儲存**：Cloud Storage (S3 替代品)
+- **網路**：Cloud Load Balancing、Cloud CDN
+- **監控**：Cloud Monitoring、Cloud Logging
+- **CI/CD**：Cloud Build、Artifact Registry
 
-**選擇理由：**
-1. **托管服務**：AWS 負責管理 Kubernetes 叢集
-2. **自動擴充**：根據負載自動調整節點數量
-3. **與 AWS 服務整合**：與 IAM、CloudWatch 等整合
-
-### 負載均衡：AWS ALB (Application Load Balancer)
-
-**選擇理由：**
-1. **第 7 層負載均衡**：支援 HTTP/HTTPS 協定
-2. **路由功能**：根據路徑路由到不同服務
-3. **SSL 終止**：處理 HTTPS 加解密
-
-### CDN：AWS CloudFront
-
-**選擇理由：**
-1. **全球加速**：邊緣節點遍布全球
-2. **與 S3 整合**：直接加速 S3 靜態資源
-3. **DDoS 防護**：內建 AWS Shield
-
-### 監控：AWS CloudWatch
-
-**選擇理由：**
-1. **整合性**：與 AWS 服務無縫整合
-2. **監控指標**：提供豐富的監控指標
-3. **告警功能**：可設定告警規則
+**替代方案：**
+- AWS：市場領導者，服務最完整
+- Microsoft Azure：與 Microsoft 生態系整合良好
 
 ## 開發工具
 
@@ -169,13 +176,13 @@
 
 | 層級 | 技術 | 選擇理由 |
 |------|------|----------|
-| 前端 | React + TypeScript | 生態系豐富、型別安全 |
-| 後端 | FastAPI (Python) | 高效能、自動文件 |
+| 前端 | Next.js (TypeScript) | 全棧框架、SSR/SSG、型別安全 |
+| 後端 | FastAPI (Python) | 高效能、自動文件、異步支援 |
 | 資料庫 | PostgreSQL | 功能完整、可靠性高 |
 | 快取 | Redis | 高效能、多功能 |
-| 雲端 | AWS | 服務完整、全球基礎設施 |
-| 容器 | Docker + EKS | 環境一致性、自動擴充 |
-| CI/CD | GitHub Actions | 與 GitHub 整合、免費 |
+| 雲端 | Google Cloud Platform (GCP) | 服務完整、全球基礎設施 |
+| 容器 | Docker + GKE | 環境一致性、自動擴充 |
+| CI/CD | Cloud Build | 與 GCP 整合、容器部署
 
 ## 技術棧優勢
 
