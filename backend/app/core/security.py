@@ -36,7 +36,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # ── Role definitions ──────────────────────────────────────────
 
 class UserRole(str, Enum):
-    MEMBER = "member"       # Regular user (default)
+    USER = "user"           # Regular user (default)
     ADMIN = "admin"         # Back-office administrator
 
 
@@ -49,7 +49,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.jwt_expire_minutes
 
 def create_access_token(
     subject: str,
-    role: UserRole = UserRole.MEMBER,
+    role: UserRole = UserRole.USER,
     expires_delta: timedelta | None = None,
 ) -> str:
     """Create a signed JWT access token.

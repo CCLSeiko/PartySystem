@@ -86,7 +86,8 @@ class DonationRepository(BaseRepository[Donation]):
         limit: int = 20,
     ) -> list[Donation]:
         """Flexible search with multiple optional filters, newest first."""
-        stmt = select(Donation).order_by(Donation.created_at.desc())
+        from sqlalchemy.orm import selectinload
+        stmt = select(Donation).options(selectinload(Donation.user)).order_by(Donation.created_at.desc())
 
         if user_id is not None:
             stmt = stmt.where(Donation.user_id == user_id)

@@ -85,20 +85,8 @@ async def get_current_user(
 # ── Dependency: require admin role ────────────────────────────
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Require the current user to have the ``admin`` role.
-
-    Usage::
-
-        @router.get("/admin/sensitive")
-        async def sensitive_endpoint(admin: User = Depends(require_admin)):
-            ...
-    """
-    # For now role is not stored on the User model — we check a
-    # simple convention: the user whose email matches the configured
-    # admin email, or the first seeded admin, is promoted.
-    # TODO: add an explicit ``role`` column to the User model in a
-    #       future migration.
-    if current_user.email not in getattr(settings, "admin_emails", []):
+    """Require the current user to have the ``admin`` role."""
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required",

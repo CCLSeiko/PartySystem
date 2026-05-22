@@ -82,8 +82,8 @@ class BaseRepository(Generic[ModelT]):
 
     async def count(self) -> int:
         """Return the total number of rows."""
-        from sqlalchemy.functions import func
+        from sqlalchemy import func as sa_func
 
-        stmt = select(func.count()).select_from(self.model)
+        stmt = select(sa_func.count()).select_from(self.model)
         result = await self.session.execute(stmt)
         return result.scalar_one()

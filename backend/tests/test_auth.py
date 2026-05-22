@@ -38,10 +38,10 @@ class TestJWT:
 
     def test_create_and_decode(self):
         user_id = uuid4()
-        token = create_access_token(subject=str(user_id), role=UserRole.MEMBER)
+        token = create_access_token(subject=str(user_id), role=UserRole.USER)
         payload = decode_access_token(token)
         assert payload["sub"] == str(user_id)
-        assert payload["role"] == "member"
+        assert payload["role"] == "user"
         assert payload["type"] == "access"
 
     def test_admin_role(self):

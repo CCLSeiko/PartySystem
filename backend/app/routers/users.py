@@ -12,7 +12,7 @@ from app.core.deps import (
     get_db_session,
     get_user_repo,
 )
-from app.core.security import create_access_token
+from app.core.security import UserRole, create_access_token
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.user import (
@@ -77,7 +77,7 @@ async def login(req: UserLoginRequest, repo: UserRepository = Depends(get_user_r
             detail="Invalid email or password",
         )
 
-    token = create_access_token(subject=str(user.id))
+    token = create_access_token(subject=str(user.id), role=UserRole(user.role))
     return UserLoginResponse(access_token=token)
 
 

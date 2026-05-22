@@ -24,13 +24,15 @@ from app.core.deps import (
     get_donation_repo,
     get_user_repo,
     get_reconciliation_repo,
+    get_subscription_repo,
     get_tax_report_repo,
     require_admin,
 )
 from app.models.user import User
-from app.repositories.donation import DonationRepository
 from app.repositories.user import UserRepository
+from app.repositories.donation import DonationRepository
 from app.repositories.reconciliation import ReconciliationRepository
+from app.repositories.subscription import SubscriptionRepository
 from app.repositories.tax_report import TaxReportRepository
 from app.schemas.admin import (
     AdminSettingsRequest,
@@ -125,6 +127,47 @@ async def admin_list_donations(
             "per_page": per_page,
             "total": total,
             "total_pages": max(1, (total + per_page - 1) // per_page),
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Subscription Management
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/subscriptions", response_model=dict)
+async def admin_list_subscriptions(
+    status_filter: str | None = Query(None, alias="status"),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    admin: User = Depends(require_admin),
+    sub_repo: SubscriptionRepository = Depends(get_subscription_repo),
+):
+    """定期定額管理列表（管理員權限）。"""
+    skip = (page - 1) * per_page
+    subs = await sub_repo.search(skip=skip, limit=per_page, status=status_filter)
+    # For now return basic list; full search with count coming
+    return {
+        "data": [
+            {
+                "id": s.id,
+                "user_id": s.user_id,
+                "amount": s.amount,
+                "frequency": s.frequency,
+                "status": s.status,
+                "next_billing_date": s.next_billing_date,
+                "cycles_completed": s.cycles_completed,
+                "total_cycles": s.total_cycles,
+                "created_at": s.created_at,
+            }
+            for s in subs
+        ],
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": len(subs),
+            "total_pages": 1,
         },
     }
 
