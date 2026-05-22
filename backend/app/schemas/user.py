@@ -50,6 +50,7 @@ class UserResponse(BaseModel):
     phone: str | None
     has_identity_number: bool = False
     tax_consent: bool
+    role: str = "user"
     is_active: bool
     created_at: datetime
 

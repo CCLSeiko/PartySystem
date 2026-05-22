@@ -38,6 +38,17 @@ class DonationRepository(BaseRepository[Donation]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_with_payment(self, donation_id: UUID) -> Donation | None:
+        """Get a donation with the payment relationship eagerly loaded."""
+        from sqlalchemy.orm import selectinload
+        stmt = (
+            select(Donation)
+            .where(Donation.id == donation_id)
+            .options(selectinload(Donation.payment))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_receipt_by_number(self, receipt_number: str) -> Donation | None:
         """Look up a donation by its receipt number."""
         stmt = select(Donation).where(Donation.receipt_number == receipt_number)

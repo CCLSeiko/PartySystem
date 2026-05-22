@@ -168,7 +168,7 @@ async def get_donation(
     對應 API 設計文件：2.3 取得特定捐款
     只能查詢自己的捐款（管理員除外，待 admin 權限補實）。
     """
-    donation = await repo.get(donation_id)
+    donation = await repo.get_with_payment(donation_id)
     if donation is None:
         raise HTTPException(status_code=404, detail="Donation not found")
 

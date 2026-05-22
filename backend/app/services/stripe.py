@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 # ── Initialise Stripe SDK ────────────────────────────────────
 
-if settings.stripe_secret_key:
+if settings.stripe_secret_key and not settings.stripe_secret_key.startswith("sk_test_"):
     stripe.api_key = settings.stripe_secret_key
     _available = True
 else:
     _available = False
-    logger.warning("STRIPE_SECRET_KEY not set — Stripe service is in fake/test mode")
+    logger.warning("STRIPE_SECRET_KEY not set or is a test placeholder — Stripe service is in fake/test mode")
 
 
 async def create_payment_intent(

@@ -30,6 +30,9 @@ class User(Base):
     # Anonymous guest account flag
     is_anonymous = Column(Boolean, default=False, nullable=False)
 
+    # Role (user / admin)
+    role = Column(String(10), default="user", nullable=False)
+
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

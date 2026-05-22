@@ -58,6 +58,7 @@ async def register(req: UserRegisterRequest, repo: UserRepository = Depends(get_
         phone=user.phone,
         has_identity_number=False,
         tax_consent=user.tax_consent,
+        role=user.role,
         is_active=user.is_active,
         created_at=user.created_at,
     )
@@ -93,6 +94,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         phone=current_user.phone,
         has_identity_number=current_user.identity_number is not None,
         tax_consent=current_user.tax_consent,
+        role=current_user.role,
         is_active=current_user.is_active,
         created_at=current_user.created_at,
     )
@@ -120,6 +122,7 @@ async def update_me(
         phone=updated.phone,
         has_identity_number=updated.identity_number is not None,
         tax_consent=updated.tax_consent,
+        role=updated.role,
         is_active=updated.is_active,
         created_at=updated.created_at,
     )

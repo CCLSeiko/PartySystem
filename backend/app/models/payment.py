@@ -38,6 +38,7 @@ class Payment(Base):
 
     # Relationships
     donation = relationship("Donation", back_populates="payment")
+    subscription = relationship("Subscription", back_populates="payments")
 
     def __repr__(self) -> str:
         return f"<Payment {self.id} {self.payment_gateway} {self.status}>"
