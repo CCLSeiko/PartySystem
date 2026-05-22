@@ -61,3 +61,68 @@ class DonationRepository(BaseRepository[Donation]):
         stmt = select(func.sum(Donation.amount)).where(Donation.status == "success")
         result = await self.session.execute(stmt)
         return float(result.scalar_one() or 0)
+
+    async def search(
+        self,
+        user_id: UUID | None = None,
+        status: str | None = None,
+        payment_method: str | None = None,
+        purpose: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        is_recurring: bool | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> list[Donation]:
+        """Flexible search with multiple optional filters, newest first."""
+        stmt = select(Donation).order_by(Donation.created_at.desc())
+
+        if user_id is not None:
+            stmt = stmt.where(Donation.user_id == user_id)
+        if status is not None:
+            stmt = stmt.where(Donation.status == status)
+        if payment_method is not None:
+            stmt = stmt.where(Donation.payment_method == payment_method)
+        if purpose is not None:
+            stmt = stmt.where(Donation.purpose == purpose)
+        if is_recurring is not None:
+            stmt = stmt.where(Donation.is_recurring == is_recurring)
+        if start_date is not None:
+            stmt = stmt.where(Donation.created_at >= start_date)
+        if end_date is not None:
+            stmt = stmt.where(Donation.created_at <= end_date)
+
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_search(
+        self,
+        user_id: UUID | None = None,
+        status: str | None = None,
+        payment_method: str | None = None,
+        purpose: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        is_recurring: bool | None = None,
+    ) -> int:
+        """Count donations matching the given filters (for pagination)."""
+        stmt = select(func.count(Donation.id))
+
+        if user_id is not None:
+            stmt = stmt.where(Donation.user_id == user_id)
+        if status is not None:
+            stmt = stmt.where(Donation.status == status)
+        if payment_method is not None:
+            stmt = stmt.where(Donation.payment_method == payment_method)
+        if purpose is not None:
+            stmt = stmt.where(Donation.purpose == purpose)
+        if is_recurring is not None:
+            stmt = stmt.where(Donation.is_recurring == is_recurring)
+        if start_date is not None:
+            stmt = stmt.where(Donation.created_at >= start_date)
+        if end_date is not None:
+            stmt = stmt.where(Donation.created_at <= end_date)
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
