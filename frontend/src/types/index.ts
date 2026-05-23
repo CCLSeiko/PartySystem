@@ -86,7 +86,7 @@ export interface CreditCardPayment {
   donation_id: string;
   amount: number;
   currency?: string;
-  payment_method_id: string;
+  payment_method_id?: string;  // Optional: for Elements flow (frontend confirms via Stripe.js)
 }
 
 export interface PaymentIntentResponse {

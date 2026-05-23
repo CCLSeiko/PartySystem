@@ -1,0 +1,72 @@
+[23 05 2026 03:16] HermesAGMACMini: 目前的 PostgreSQL 密碼是：
+
+DonationPass2024
+
+---
+
+連線資訊
+
+**主機**
+
+• 項目: 主機
+
+• 值: localhost
+
+**Port**
+
+• 項目: Port
+
+• 值: 5432
+
+**資料庫**
+
+• 項目: 資料庫
+
+• 值: donationsystem
+
+**使用者**
+
+• 項目: 使用者
+
+• 值: donation
+
+**密碼**
+
+• 項目: 密碼
+
+• 值: DonationPass2024
+
+從主機直接連線：
+psql -h localhost -p 5432 -U donation -d donationsystem
+# 密碼: DonationPass2024
+
+
+這些設定定義在 backend/.env.production 裡面，如果有需要調整可以跟我說。
+[23 05 2026 03:29] HermesAGMACMini: 管理員帳號資訊如下：
+
+**Email**
+
+• 項目: Email
+
+• 值: admin@donationsystem.test
+
+**密碼**
+
+• 項目: 密碼
+
+• 值: AdminP@ss123
+
+**後台網址**
+
+• 項目: 後台網址
+
+• 值: http://localhost/admin/dashboard
+
+這組帳號是在 Docker 啟動時透過 seed_admin.py 自動建立的，定義在 backend/.env.production：
+
+ADMIN_EMAIL=admin@donationsystem.test
+ADMIN_PASSWORD=AdminP@ss123
+ADMIN_NAME=系統管理員
+
+
+ ⚠️ 這是開發用帳號，正式上線請務必修改密碼。

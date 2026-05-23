@@ -5,6 +5,7 @@ uvicorn[standard]==0.30.0
 # Database
 sqlalchemy[asyncio]==2.0.35
 asyncpg==0.29.0
+psycopg2-binary==2.9.9
 alembic==1.13.2
 
 # Validation
@@ -19,6 +20,7 @@ python-multipart==0.0.9
 # Payment
 stripe==11.0.0
 python-dateutil==2.9.0.post0
+email-validator==2.2.0
 
 # Crypto (AES-256-GCM)
 cryptography==43.0.0

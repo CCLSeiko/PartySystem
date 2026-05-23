@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { Donation, PaginatedResponse } from '@/types';
 import { DataTable, Pagination, StatusBadge, LoadingSpinner } from '@/components/ui';
 import { formatCurrency, formatDateTime, getPurposeLabel, getMethodLabel } from '@/lib/utils';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, ChevronDown, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 type DonationWithUser = Donation & { user?: { id: string; email: string; name: string } };
 
@@ -16,6 +16,18 @@ const STATUS_OPTIONS = [
   { value: 'failed', label: '失敗' },
   { value: 'cancelled', label: '已取消' },
 ];
+
+const STATUS_TRANSITIONS: Record<string, { value: string; label: string; color: string }[]> = {
+  pending: [
+    { value: 'success', label: '標記為成功', color: 'text-green-700 bg-green-50 hover:bg-green-100' },
+    { value: 'failed', label: '標記為失敗', color: 'text-red-700 bg-red-50 hover:bg-red-100' },
+    { value: 'cancelled', label: '標記為取消', color: 'text-gray-700 bg-gray-50 hover:bg-gray-100' },
+  ],
+  failed: [
+    { value: 'pending', label: '重設為待處理', color: 'text-yellow-700 bg-yellow-50 hover:bg-yellow-100' },
+    { value: 'success', label: '標記為成功', color: 'text-green-700 bg-green-50 hover:bg-green-100' },
+  ],
+};
 
 const METHOD_OPTIONS = [
   { value: '', label: '全部' },
@@ -34,6 +46,10 @@ export default function AdminDonationsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Status change state
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadDonations();
@@ -74,6 +90,24 @@ export default function AdminDonationsPage() {
     setPage(1);
   }
 
+  async function handleStatusChange(donationId: string, newStatus: string) {
+    setUpdatingId(donationId);
+    setStatusMessage(null);
+    try {
+      await api.adminUpdateDonationStatus(donationId, newStatus);
+      setStatusMessage({ type: 'success', text: '狀態已更新' });
+      // Refresh list
+      await loadDonations();
+    } catch (err) {
+      setStatusMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : '更新狀態失敗',
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   const columns = [
     {
       key: 'created_at',
@@ -111,6 +145,37 @@ export default function AdminDonationsPage() {
       header: '收據編號',
       render: (item: DonationWithUser) => item.receipt_number || '-',
     },
+    {
+      key: 'actions',
+      header: '操作',
+      render: (item: DonationWithUser) => {
+        const transitions = STATUS_TRANSITIONS[item.status];
+        if (!transitions) return <span className="text-xs text-gray-400">不可變更</span>;
+
+        return (
+          <div className="relative inline-block">
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleStatusChange(item.id, e.target.value);
+                }
+              }}
+              disabled={updatingId === item.id}
+              className="appearance-none text-xs px-2 py-1.5 pr-6 border border-gray-200 rounded-lg bg-white text-gray-600 hover:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:opacity-50 cursor-pointer"
+            >
+              <option value="">{updatingId === item.id ? '更新中...' : '變更狀態'}</option>
+              {transitions.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+          </div>
+        );
+      },
+    },
   ];
 
   return (
@@ -125,6 +190,30 @@ export default function AdminDonationsPage() {
           篩選
         </button>
       </div>
+
+      {/* Status message */}
+      {statusMessage && (
+        <div
+          className={`flex items-start gap-2 p-3 rounded-xl border ${
+            statusMessage.type === 'success'
+              ? 'bg-green-50 border-green-200'
+              : 'bg-red-50 border-red-200'
+          }`}
+        >
+          {statusMessage.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+          )}
+          <p
+            className={`text-sm ${
+              statusMessage.type === 'success' ? 'text-green-700' : 'text-red-600'
+            }`}
+          >
+            {statusMessage.text}
+          </p>
+        </div>
+      )}
 
       {/* Filters */}
       {showFilters && (

@@ -7,6 +7,8 @@ import { api, ApiError } from '@/lib/api';
 import { Card } from '@/components/ui';
 import { getPurposeLabel, getMethodLabel } from '@/lib/utils';
 import type { PaymentMethod, DonationPurpose } from '@/types';
+import StripeCardForm from '@/components/payment/StripeCardForm';
+import StripePaymentWrapper from '@/components/payment/StripePaymentWrapper';
 import {
   Heart,
   ChevronLeft,
@@ -106,7 +108,6 @@ export default function DonatePage() {
     postalAccount?: string;
     draftNumber?: string;
   } | null>(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentDone, setPaymentDone] = useState(false);
 
   const isLoggedIn = !!user;
@@ -180,11 +181,10 @@ export default function DonatePage() {
       });
 
       if (paymentMethod === 'credit_card') {
-        // Create payment intent
+        // Create payment intent (Elements mode — no payment_method_id)
         const paymentIntent = await api.createCreditCardPayment({
           donation_id: donation.id,
           amount: amount as number,
-          payment_method_id: 'pm_simulated',
         } as import('@/types').CreditCardPayment);
         setResult({
           type: 'credit_card',
@@ -224,15 +224,6 @@ export default function DonatePage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // --- Credit Card Payment Simulation ---
-  const handleCreditCardPayment = async () => {
-    setPaymentLoading(true);
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setPaymentLoading(false);
-    setPaymentDone(true);
   };
 
   // --- Render Step Content ---
@@ -433,83 +424,27 @@ export default function DonatePage() {
                     <CreditCard className="w-8 h-8 text-rose-600" />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">信用卡付款</h2>
-                  <p className="text-gray-500 mt-1">請確認付款資訊</p>
+                  <p className="text-gray-500 mt-1">請輸入信用卡資訊完成捐款</p>
                 </div>
 
                 <Card className="p-6 mb-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">捐款金額</span>
-                      <span className="font-bold text-gray-900 text-lg">${result.amount.toLocaleString()}</span>
+                  {result.clientSecret ? (
+                    <StripePaymentWrapper clientSecret={result.clientSecret}>
+                      <StripeCardForm
+                        clientSecret={result.clientSecret}
+                        amount={result.amount}
+                        donationId={result.donationId}
+                        onSuccess={() => setPaymentDone(true)}
+                        onBack={() => setResult(null)}
+                      />
+                    </StripePaymentWrapper>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin text-rose-500 mx-auto mb-3" />
+                      <p className="text-sm text-gray-500">正在初始化付款...</p>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">捐款編號</span>
-                      <span className="font-mono text-gray-700">{result.donationId.substring(0, 8)}...</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">付款狀態</span>
-                      <span className="text-yellow-600 font-medium">待付款</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <p className="text-xs text-gray-500 mb-2">模擬付款表單</p>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">卡片號碼</label>
-                        <input
-                          type="text"
-                          placeholder="4242 4242 4242 4242"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">有效月年</label>
-                          <input
-                            type="text"
-                            placeholder="12/28"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">CVC</label>
-                          <input
-                            type="text"
-                            placeholder="123"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-3">
-                      client_secret: {result.clientSecret?.substring(0, 20)}...
-                    </p>
-                  </div>
+                  )}
                 </Card>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setResult(null)}
-                    className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all"
-                  >
-                    返回修改
-                  </button>
-                  <button
-                    onClick={handleCreditCardPayment}
-                    disabled={paymentLoading}
-                    className="flex-1 bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-                  >
-                    {paymentLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        處理中...
-                      </>
-                    ) : (
-                      '確認付款'
-                    )}
-                  </button>
-                </div>
               </>
             ) : (
               <div className="text-center py-8">
@@ -606,45 +541,51 @@ export default function DonatePage() {
           <div className="max-w-md mx-auto">
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-rose-100 rounded-2xl mb-4">
-                <Building className="w-8 h-8 text-rose-600" />
+                <Banknote className="w-8 h-8 text-rose-600" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">現金捐款登記</h2>
-              <p className="text-gray-500 mt-1">您的捐款登記已送出</p>
+              <p className="text-gray-500 mt-1">請至本會辦公室辦理現金捐款</p>
             </div>
 
             <Card className="p-6 mb-6">
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">捐款金額</span>
-                  <span className="font-bold text-gray-900 text-lg">${result.amount.toLocaleString()}</span>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <span className="text-sm text-gray-600">捐款金額</span>
+                  <span className="text-lg font-bold text-gray-900">${result.amount.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">捐款編號</span>
-                  <span className="font-mono text-gray-700">{result.donationId.substring(0, 8)}...</span>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <span className="text-sm text-gray-600">捐款編號</span>
+                  <span className="text-sm font-mono text-gray-700">{result.donationId.substring(0, 8)}...</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">狀態</span>
-                  <span className="text-yellow-600 font-medium">待付款</span>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <span className="text-sm text-gray-600">狀態</span>
+                  <span className="text-sm font-medium text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">待繳款</span>
                 </div>
               </div>
 
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                <div className="flex items-start gap-2 text-sm text-blue-700">
-                  <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                <div className="flex items-start gap-2 text-sm text-yellow-700">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-medium mb-1">捐款登記已完成</p>
-                    <p>請於 7 日內至本會辦公室完成現金捐款，或由本會人員與您聯繫。</p>
+                    <p className="font-medium mb-1">捐款流程：</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>請攜帶此編號至本會辦公室</li>
+                      <li>由本會人員協助完成捐款登記</li>
+                      <li>完成後將開立正式收據</li>
+                    </ul>
                   </div>
                 </div>
               </div>
             </Card>
 
-            <button
-              onClick={() => router.push('/')}
-              className="w-full bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all"
-            >
-              返回首頁
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push('/')}
+                className="w-full bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all"
+              >
+                返回首頁
+              </button>
+            </div>
           </div>
         );
     }
@@ -652,74 +593,65 @@ export default function DonatePage() {
 
   // --- Main Render ---
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-rose-50 to-white">
-      <div className="max-w-2xl mx-auto px-4 py-10 md:py-16">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-rose-100 rounded-2xl mb-4">
-            <Heart className="w-7 h-7 text-rose-600 fill-rose-600" />
+    <div className="min-h-screen bg-gradient-to-b from-rose-50 via-white to-white">
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-rose-500 via-rose-600 to-pink-700 text-white">
+        <div className="max-w-lg mx-auto px-4 pt-16 pb-12 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-white/20 backdrop-blur-sm rounded-2xl mb-4">
+            <Heart className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">愛心捐款</h1>
-          <p className="text-gray-500 mt-1">每一份心意，都是改變世界的力量</p>
+          <h1 className="text-2xl font-bold mb-2">愛心捐款</h1>
+          <p className="text-rose-100 text-sm">每一份愛心，都是改變的力量</p>
         </div>
+      </div>
 
-        {result ? (
-          renderResult()
-        ) : (
-          <>
-            {/* Step Indicator */}
-            <StepIndicator current={step} total={totalSteps} labels={stepLabels} />
+      {/* Form Area */}
+      <div className="max-w-lg mx-auto px-4 -mt-6 pb-20">
+        <div className="bg-white rounded-2xl shadow-lg shadow-gray-200/50 p-6 sm:p-8">
+          {!result ? (
+            <>
+              {/* Steps */}
+              {!result && <StepIndicator current={step} total={totalSteps} labels={stepLabels} />}
 
-            {/* Step Content */}
-            <Card className="p-6 md:p-8">
+              {/* Step content */}
               {renderStep()}
 
               {/* Error */}
               {error && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-sm text-red-600">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{error}</span>
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}
 
-              {/* Navigation Buttons */}
-              {step < totalSteps - 1 && (
-                <div className="mt-8 flex gap-3">
-                  {step > 0 ? (
-                    <button
-                      onClick={handlePrev}
-                      className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-1.5"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      上一步
-                    </button>
-                  ) : (
-                    <div className="flex-1" />
-                  )}
-                  <button
-                    onClick={handleNext}
-                    className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-rose-200"
-                  >
-                    下一步
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {/* Last step: Submit */}
-              {step === totalSteps - 1 && (
-                <div className="mt-8 flex gap-3">
+              {/* Navigation */}
+              <div className="flex gap-3 mt-8">
+                {step > 0 ? (
                   <button
                     onClick={handlePrev}
-                    className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-1.5"
+                    className="flex items-center justify-center gap-1.5 px-5 py-3 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     上一步
                   </button>
+                ) : (
+                  <div />
+                )}
+
+                {step < totalSteps - 1 ? (
+                  <button
+                    onClick={handleNext}
+                    disabled={!canProceedFromStep(step)}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    下一步
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                ) : (
                   <button
                     onClick={handleSubmit}
-                    disabled={loading}
-                    className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm shadow-rose-200"
+                    disabled={loading || !canProceedFromStep(step)}
+                    className="flex-1 bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <>
@@ -728,15 +660,19 @@ export default function DonatePage() {
                       </>
                     ) : (
                       <>
-                        確認捐款 <Heart className="w-4 h-4" />
+                        <Heart className="w-4 h-4" />
+                        立即捐款
                       </>
                     )}
                   </button>
-                </div>
-              )}
-            </Card>
-          </>
-        )}
+                )}
+              </div>
+            </>
+          ) : (
+            /* Result screen */
+            renderResult()
+          )}
+        </div>
       </div>
     </div>
   );

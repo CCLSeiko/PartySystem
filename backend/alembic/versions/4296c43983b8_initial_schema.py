@@ -33,6 +33,7 @@ def upgrade() -> None:
         sa.Column("address", sa.Text, nullable=True),
         sa.Column("tax_consent", sa.Boolean, default=False, nullable=False),
         sa.Column("is_anonymous", sa.Boolean, default=False, nullable=False),
+        sa.Column("role", sa.String(10), default="user", nullable=False),
         sa.Column("is_active", sa.Boolean, default=True, nullable=False),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),

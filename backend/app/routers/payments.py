@@ -70,11 +70,16 @@ async def credit_card_payment(
 ):
     """建立信用卡付款（Stripe PaymentIntent）。
 
-    流程：
-    1. 查詢捐款紀錄，驗證為 pending 且屬於當前使用者
+    流程（Elements 模式）：
+    1. 查詢捐款紀錄，驗證為 pending
     2. 建立 Payment 紀錄（status=pending）
-    3. 呼叫 Stripe 建立 PaymentIntent
-    4. 回傳 client_secret 供前端執行 3D Secure
+    3. 呼叫 Stripe 建立 PaymentIntent（不 auto-confirm）
+    4. 回傳 client_secret 供前端 Stripe Elements 執行 confirmCardPayment
+
+    流程（Legacy 模式 — 提供 payment_method_id）：
+    1-2 同上
+    3. 呼叫 Stripe 建立 PaymentIntent 並 auto-confirm
+    4. 回傳 client_secret + 最終狀態（可能需 3DS）
     """
     # 1. 查詢捐款
     donation = await donation_repo.get(req.donation_id)

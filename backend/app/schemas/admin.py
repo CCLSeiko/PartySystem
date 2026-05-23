@@ -102,3 +102,10 @@ class Pagination(BaseModel):
 class PaginatedResponse(BaseModel):
     data: list
     pagination: Pagination
+
+
+# ── Donation Status Update ────────────────────────────────────
+
+class DonationStatusUpdateRequest(BaseModel):
+    status: str = Field(..., pattern=r"^(pending|success|failed|cancelled)$")
+    reason: str | None = None

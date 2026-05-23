@@ -19,7 +19,7 @@ from app.schemas.user import UserResponse
 
 
 async def seed_admin():
-    email = os.getenv("ADMIN_EMAIL", "admin@donationsystem.test")
+    email = os.getenv("ADMIN_EMAIL", "admin@donationsystem.dev")
     password = os.getenv("ADMIN_PASSWORD", "AdminP@ss123")
     name = os.getenv("ADMIN_NAME", "系統管理員")
 

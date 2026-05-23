@@ -13,7 +13,7 @@ class CreditCardPaymentRequest(BaseModel):
     donation_id: UUID
     amount: Decimal = Field(..., gt=0, decimal_places=2)
     currency: str = "TWD"
-    payment_method_id: str  # Stripe PaymentMethod ID (tokenized by frontend)
+    payment_method_id: str | None = None  # Optional: for Elements flow (frontend confirms)
 
 
 class PostalPaymentRequest(BaseModel):

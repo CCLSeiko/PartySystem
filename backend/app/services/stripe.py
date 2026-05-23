@@ -7,6 +7,7 @@ a fake mode for testing.
 
 import logging
 from decimal import Decimal
+from typing import Optional
 
 import stripe
 
@@ -27,15 +28,25 @@ else:
 async def create_payment_intent(
     amount: Decimal,
     currency: str,
-    payment_method_id: str,
+    payment_method_id: Optional[str],
     donation_id: str,
 ) -> dict:
     """Create a Stripe PaymentIntent and return the client secret.
 
+    Two modes:
+    1. Elements mode (payment_method_id=None):
+       - Creates PaymentIntent in ``requires_payment_method`` state
+       - Frontend uses ``stripe.confirmCardPayment(client_secret, {payment_method: {card: element}})``
+       - Returns ``requires_payment_method`` status
+
+    2. Legacy mode (payment_method_id provided):
+       - Attaches the tokenized PaymentMethod and auto-confirms
+       - Returns the final status (succeeded / requires_action for 3DS)
+
     Args:
         amount:             The amount (in major units, e.g. 10.00 = $10).
         currency:           ISO 4217 currency code (e.g. ``twd``, ``usd``).
-        payment_method_id:  Tokenized Stripe PaymentMethod ID from the frontend.
+        payment_method_id:  Stripe PaymentMethod ID (Optional for Elements flow).
         donation_id:        Our internal donation UUID (used as metadata).
 
     Returns:
@@ -59,21 +70,29 @@ async def create_payment_intent(
         }
 
     # ── Convert to cents (Stripe uses smallest currency unit) ─
-    # TWD has no decimals, so amount * 100 for cents.
-    # For most currencies: int(amount * 100).
-    amount_cents = int(amount * 100)
+    # TWD has no decimals, use amount directly (TWD is zero-decimal currency)
+    if currency.upper() == "TWD":
+        amount_cents = int(amount)
+    else:
+        amount_cents = int(amount * 100)
 
-    intent = stripe.PaymentIntent.create(
-        amount=amount_cents,
-        currency=currency.lower(),
-        payment_method=payment_method_id,
-        confirmation_method="manual",
-        confirm=True,
-        metadata={
-            "donation_id": donation_id,
-        },
-        return_url="https://donationsystem.example.com/payment/callback",
-    )
+    kwargs = {
+        "amount": amount_cents,
+        "currency": currency.lower(),
+        "metadata": {"donation_id": donation_id},
+    }
+
+    if payment_method_id:
+        # Legacy flow: attach payment method and confirm
+        kwargs["payment_method"] = payment_method_id
+        kwargs["confirmation_method"] = "manual"
+        kwargs["confirm"] = True
+        kwargs["return_url"] = "https://donationsystem.example.com/payment/callback"
+    else:
+        # Elements flow: just create the intent, frontend confirms later
+        kwargs["automatic_payment_methods"] = {"enabled": True}
+
+    intent = stripe.PaymentIntent.create(**kwargs)
 
     return {
         "payment_intent_id": intent.id,

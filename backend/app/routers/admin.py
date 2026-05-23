@@ -37,6 +37,7 @@ from app.repositories.tax_report import TaxReportRepository
 from app.schemas.admin import (
     AdminSettingsRequest,
     AdminSettingsResponse,
+    DonationStatusUpdateRequest,
     ReconciliationDetailResponse,
     ReconciliationItem,
     ReconciliationUploadResponse,
@@ -128,6 +129,29 @@ async def admin_list_donations(
             "total": total,
             "total_pages": max(1, (total + per_page - 1) // per_page),
         },
+    }
+
+
+@router.put("/donations/{donation_id}/status", response_model=dict)
+async def admin_update_donation_status(
+    donation_id: UUID,
+    req: DonationStatusUpdateRequest,
+    admin: User = Depends(require_admin),
+    donation_repo: DonationRepository = Depends(get_donation_repo),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """管理後台更新捐款狀態（管理員權限）。
+
+    支援狀態：pending → success / failed / cancelled
+    """
+    donation = await donation_repo.update(donation_id, status=req.status)
+    if donation is None:
+        raise HTTPException(status_code=404, detail="Donation not found")
+    await session.commit()
+    return {
+        "id": donation_id,
+        "status": req.status,
+        "updated_at": datetime.utcnow().isoformat(),
     }
 
 
