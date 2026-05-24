@@ -14,6 +14,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('');
   const [toggling, setToggling] = useState<string | null>(null);
+  const [pageError, setPageError] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -32,6 +33,7 @@ export default function AdminUsersPage() {
       setData(result);
     } catch (err) {
       console.error('Failed to load users', err);
+      setPageError(err instanceof Error ? err.message : '載入使用者失敗');
     } finally {
       setLoading(false);
     }
@@ -73,7 +75,7 @@ export default function AdminUsersPage() {
     {
       key: 'total_donated',
       header: '總捐款',
-      render: (item: AdminUser) => formatCurrency(item.total_donated),
+      render: (item: AdminUser) => formatCurrency(item.total_donated ?? 0),
       className: 'font-medium',
     },
     {
@@ -169,6 +171,9 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Table */}
+      {pageError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{pageError}</div>
+      )}
       {loading ? (
         <LoadingSpinner />
       ) : (

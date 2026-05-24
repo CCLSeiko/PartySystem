@@ -493,6 +493,22 @@ async def get_tax_summary(
 # ═══════════════════════════════════════════════════════════════
 
 
+@router.get("/settings")
+async def get_settings(
+    admin: User = Depends(require_admin),
+):
+    """取得系統設定（管理員權限）。
+
+    回傳預設值（尚未實作資料庫儲存機制）。
+    """
+    return {
+        "min_donation_amount": 100,
+        "donation_purposes": ["general", "emergency_relief", "education", "medical", "other"],
+        "subscription_retry_limit": 3,
+        "auto_pause_after_failures": 3,
+    }
+
+
 @router.put("/settings", response_model=AdminSettingsResponse)
 async def update_settings(
     req: AdminSettingsRequest,

@@ -79,7 +79,7 @@ export function DataTable<T>({
     );
   }
 
-  if (!data.length) {
+  if (!data || !data.length) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="p-12 text-center text-gray-400">{emptyMessage}</div>
