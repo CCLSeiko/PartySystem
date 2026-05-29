@@ -122,7 +122,7 @@ export const api = {
     phone?: string;
     has_identity_number: boolean;
     tax_consent: boolean;
-    role: 'user' | 'admin';
+    role: 'user' | 'donation_maintainer' | 'admin';
     is_active: boolean;
     created_at: string;
   }> {
@@ -134,7 +134,7 @@ export const api = {
     email: string;
     name: string;
     phone?: string;
-    role: 'user' | 'admin';
+    role: 'user' | 'donation_maintainer' | 'admin';
   }> {
     return request('PUT', '/users/me', input, getToken());
   },
@@ -312,6 +312,176 @@ export const api = {
     const base = API_BASE;
     const url = `${base}/admin/tax/report/${year}`;
     return token ? `${url}?token=${token}` : url;
+  },
+
+  // ── Maintenance: Donations ──
+  async maintenanceCreateDonation(input: {
+    donor_name: string;
+    donor_email?: string;
+    amount: number;
+    currency?: string;
+    purpose?: string;
+    payment_method: string;
+    status?: string;
+  }): Promise<{
+    id: string;
+    amount: number;
+    receipt_number: string;
+    status: string;
+    donor_name: string;
+    donor_email?: string;
+    created_at: string;
+  }> {
+    return request('POST', '/maintenance/donations', input, getToken());
+  },
+
+  async maintenanceGetSimpleStats(): Promise<{
+    total_amount: number;
+    currency: string;
+    updated_at: string;
+  }> {
+    return request('GET', '/maintenance/stats/simple', undefined, getToken());
+  },
+
+  async maintenanceSearchDonors(q: string): Promise<{
+    id: string;
+    email: string;
+    name: string;
+    phone?: string;
+    total_donations: number;
+    last_donation_date?: string;
+  }[]> {
+    return request('GET', `/maintenance/donors/search${qs({ q })}`, undefined, getToken());
+  },
+
+  // ── Maintenance: Donors ──
+  async maintenanceGetDonors(params?: {
+    q?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<{
+    data: any[];
+    pagination: { page: number; per_page: number; total: number; total_pages: number };
+  }> {
+    return request('GET', `/maintenance/donors${qs(params || {})}`, undefined, getToken());
+  },
+
+  async maintenanceGetDonor(id: string): Promise<any> {
+    return request('GET', `/maintenance/donors/${id}`, undefined, getToken());
+  },
+
+  async maintenanceCreateDonor(input: {
+    name: string;
+    email: string;
+    password?: string;
+    phone?: string;
+    phone_home?: string;
+    phone_mobile?: string;
+    phone_work?: string;
+    address?: string;
+    identity_number?: string;
+    birthday?: string;
+    tax_consent?: boolean;
+  }): Promise<any> {
+    return request('POST', '/maintenance/donors', input, getToken());
+  },
+
+  async maintenanceUpdateDonor(id: string, input: {
+    name?: string;
+    email?: string;
+    password?: string;
+    phone?: string;
+    phone_home?: string;
+    phone_mobile?: string;
+    phone_work?: string;
+    address?: string;
+    identity_number?: string;
+    birthday?: string;
+    tax_consent?: boolean;
+  }): Promise<any> {
+    return request('PUT', `/maintenance/donors/${id}`, input, getToken());
+  },
+
+  async maintenanceDeleteDonor(id: string): Promise<void> {
+    return request('DELETE', `/maintenance/donors/${id}`, undefined, getToken());
+  },
+
+  // ── Maintenance: Donor Accounts ──
+  async maintenanceGetDonorAccounts(donorId: string): Promise<any[]> {
+    return request('GET', `/maintenance/donors/${donorId}/accounts`, undefined, getToken());
+  },
+
+  async maintenanceCreateDonorAccount(donorId: string, input: {
+    account_type: string;
+    auth_start_date?: string;
+    auth_end_date?: string;
+    authorized_person?: string;
+    donation_amount?: number;
+    card_issuing_bank?: string;
+    card_cvv?: string;
+    card_type?: string;
+    card_expiry_month?: string;
+    card_expiry_year?: string;
+    postal_account?: string;
+    bank_account?: string;
+  }): Promise<any> {
+    return request('POST', `/maintenance/donors/${donorId}/accounts`, input, getToken());
+  },
+
+  // ── Maintenance: Subscriptions ──
+  async maintenanceGetSubscriptions(params?: {
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<{
+    data: any[];
+    pagination: { page: number; per_page: number; total: number; total_pages: number };
+  }> {
+    return request('GET', `/maintenance/subscriptions${qs(params || {})}`, undefined, getToken());
+  },
+
+  async maintenanceGetSubscription(id: string): Promise<any> {
+    return request('GET', `/maintenance/subscriptions/${id}`, undefined, getToken());
+  },
+
+  async maintenanceCreateSubscription(input: {
+    donor_id: string;
+    amount: number;
+    frequency: string;
+    payment_method: string;
+    purpose?: string;
+  }): Promise<any> {
+    return request('POST', '/maintenance/subscriptions', input, getToken());
+  },
+
+  async maintenanceUpdateSubscription(id: string, input: {
+    amount?: number;
+    frequency?: string;
+    payment_method?: string;
+    purpose?: string;
+    status?: string;
+    start_date?: string;
+    end_date?: string | null;
+    next_billing_date?: string;
+    total_cycles?: number;
+    cycles_completed?: number;
+  }): Promise<any> {
+    return request('PUT', `/maintenance/subscriptions/${id}`, input, getToken());
+  },
+
+  async maintenanceGetSubscriptionHistory(id: string, params?: {
+    page?: number;
+    per_page?: number;
+  }): Promise<any> {
+    return request('GET', `/maintenance/subscriptions/${id}/history${qs(params || {})}`, undefined, getToken());
+  },
+
+  async maintenanceGetSubscriptionStats(params?: {
+    year?: number;
+    month?: number;
+  }): Promise<any> {
+    const path = `/maintenance/subscriptions/stats/monthly${qs(params || {})}`;
+    return request('GET', path, undefined, getToken());
   },
 
   // ── Logout ──

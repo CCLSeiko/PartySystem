@@ -45,6 +45,15 @@ const adminItems: SidebarItem[] = [
   { label: '系統設定', href: '/admin/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
+// Donation maintainer sidebar items (limited access)
+const maintainerItems: SidebarItem[] = [
+  { label: '捐款儀表板', href: '/maintainer/dashboard', icon: <BarChart3 className="w-5 h-5" /> },
+  { label: '捐款管理', href: '/maintainer/donations', icon: <HeartHandshake className="w-5 h-5" /> },
+  { label: '手動登錄捐款', href: '/maintainer/donations/new', icon: <DollarSign className="w-5 h-5" /> },
+  { label: '捐款人管理', href: '/maintainer/donors', icon: <Users className="w-5 h-5" /> },
+  { label: '定期定額', href: '/maintainer/subscriptions', icon: <Repeat className="w-5 h-5" /> },
+];
+
 function SidebarContent({ items, title, icon }: { items: SidebarItem[]; title: string; icon: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -89,4 +98,8 @@ export function MemberSidebar() {
 
 export function AdminSidebar() {
   return <SidebarContent items={adminItems} title="管理後台" icon={<Shield className="w-5 h-5 text-amber-500" />} />;
+}
+
+export function MaintainerSidebar() {
+  return <SidebarContent items={maintainerItems} title="捐款維護" icon={<DollarSign className="w-5 h-5 text-emerald-500" />} />;
 }

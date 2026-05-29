@@ -21,7 +21,13 @@ class User(Base):
     name = Column(String(100), nullable=False)
     identity_number = Column(LargeBinary, nullable=True)      # AES-256-GCM encrypted
     identity_number_iv = Column(LargeBinary, nullable=True)   # IV prepended to ciphertext
+    # Phone
     phone = Column(String(20), nullable=True)
+    phone_home = Column(String(20), nullable=True)
+    phone_mobile = Column(String(20), nullable=True)
+    phone_work = Column(String(20), nullable=True)
+
+    # Address
     address = Column(Text, nullable=True)
 
     # Tax reporting consent
@@ -30,8 +36,11 @@ class User(Base):
     # Anonymous guest account flag
     is_anonymous = Column(Boolean, default=False, nullable=False)
 
-    # Role (user / admin)
-    role = Column(String(10), default="user", nullable=False)
+    # Birthday (YYYYMMDD)
+    birthday = Column(String(8), nullable=True)
+
+    # Role (user / donation_maintainer / admin)
+    role = Column(String(20), default="user", nullable=False)
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False)

@@ -11,7 +11,7 @@ export interface User {
   has_identity_number: boolean;
   tax_consent: boolean;
   is_active: boolean;
-  role: 'user' | 'admin';
+  role: 'user' | 'donation_maintainer' | 'admin';
   created_at: string;
 }
 

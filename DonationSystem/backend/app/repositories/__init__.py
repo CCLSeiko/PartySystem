@@ -7,6 +7,7 @@ from app.repositories.subscription import SubscriptionRepository
 from app.repositories.postal_draft import PostalDraftRepository
 from app.repositories.reconciliation import ReconciliationRepository
 from app.repositories.tax_report import TaxReportRepository
+from app.repositories.donor_account import DonorAccountRepository
 
 __all__ = [
     "UserRepository",
@@ -16,4 +17,5 @@ __all__ = [
     "PostalDraftRepository",
     "ReconciliationRepository",
     "TaxReportRepository",
+    "DonorAccountRepository",
 ]

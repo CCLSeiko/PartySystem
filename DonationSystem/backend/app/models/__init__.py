@@ -7,6 +7,7 @@ from app.models.subscription import Subscription
 from app.models.postal_draft import PostalDraft
 from app.models.reconciliation import ReconciliationRecord
 from app.models.tax_report import TaxReport
+from app.models.donor_account import DonorAccount
 
 __all__ = [
     "User",

@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.user import User
 from app.repositories.base import BaseRepository
@@ -56,5 +56,65 @@ class UserRepository(BaseRepository[User]):
         if user is None:
             return False
         user.password_hash = hash_password(new_password)
+        await self.session.flush()
+        return True
+
+    async def search_by_name_or_email(self, q: str, limit: int = 10) -> list[User]:
+        """Search users by name or email (case-insensitive LIKE)."""
+        stmt = (
+            select(User)
+            .where(
+                User.name.ilike(f"%{q}%")
+                | User.email.ilike(f"%{q}%")
+            )
+            .order_by(User.name)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_all_users(
+        self,
+        role_filter: str | None = None,
+        q: str | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> list[User]:
+        """List users with optional role filter and search query."""
+        stmt = select(User).order_by(User.created_at.desc())
+        if role_filter is not None:
+            stmt = stmt.where(User.role == role_filter)
+        if q is not None:
+            stmt = stmt.where(
+                User.name.ilike(f"%{q}%")
+                | User.email.ilike(f"%{q}%")
+            )
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_users(
+        self,
+        role_filter: str | None = None,
+        q: str | None = None,
+    ) -> int:
+        """Count users matching optional filters (for pagination)."""
+        stmt = select(func.count(User.id))
+        if role_filter is not None:
+            stmt = stmt.where(User.role == role_filter)
+        if q is not None:
+            stmt = stmt.where(
+                User.name.ilike(f"%{q}%")
+                | User.email.ilike(f"%{q}%")
+            )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
+
+    async def soft_delete(self, user_id: UUID) -> bool:
+        """Soft-delete a user by setting is_active=False."""
+        user = await self.get(user_id)
+        if user is None:
+            return False
+        user.is_active = False
         await self.session.flush()
         return True

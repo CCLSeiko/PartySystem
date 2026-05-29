@@ -1,4 +1,6 @@
-"""Subscription model — recurring donation plans with auto-billing."""
+"""
+Subscription model — recurring donation plans with auto-billing.
+"""
 
 import uuid
 from datetime import date, datetime
@@ -19,16 +21,19 @@ class Subscription(Base):
     # Financial
     amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String(3), default="TWD", nullable=False)
+    purpose = Column(String(100), nullable=True)
 
     # Schedule
     frequency = Column(String(10), nullable=False)       # monthly / quarterly / yearly
     total_cycles = Column(Integer, default=0)             # 0 = indefinite
     cycles_completed = Column(Integer, default=0)
+    start_date = Column(Date, default=date.today, nullable=False)
+    end_date = Column(Date, nullable=True)
 
     # Gateway
     payment_method = Column(String(20), default="credit_card")
-    gateway_customer_id = Column(String(255), nullable=True)       # Stripe customer / source ID
-    gateway_payment_method_id = Column(String(255), nullable=True) # Stripe PaymentMethod ID
+    gateway_customer_id = Column(String(255), nullable=True)
+    gateway_payment_method_id = Column(String(255), nullable=True)
 
     # Status
     status = Column(String(20), default="active", nullable=False, index=True)  # active / paused / cancelled / expired

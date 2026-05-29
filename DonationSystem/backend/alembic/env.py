@@ -29,6 +29,7 @@ from app.models import (          # noqa: F401 — needed by Alembic autogenerat
     PostalDraft,
     ReconciliationRecord,
     TaxReport,
+    DonorAccount,
 )
 
 target_metadata = Base.metadata

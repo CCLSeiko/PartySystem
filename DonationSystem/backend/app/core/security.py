@@ -36,8 +36,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # ── Role definitions ──────────────────────────────────────────
 
 class UserRole(str, Enum):
-    USER = "user"           # Regular user (default)
-    ADMIN = "admin"         # Back-office administrator
+    USER = "user"                    # Regular user / donor (default)
+    DONATION_MAINTAINER = "donation_maintainer"  # Dedicated donation data maintainer
+    ADMIN = "admin"                  # Full back-office administrator
 
 
 # ── JWT ───────────────────────────────────────────────────────

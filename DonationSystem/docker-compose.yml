@@ -22,6 +22,16 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
 
+  # ── MailHog (dev SMTP) ──
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # Web UI
+    profiles:
+      - dev
+
   # ── FastAPI Backend ──
   backend:
     build:
@@ -37,6 +47,10 @@ services:
       DB_NAME: ${POSTGRES_DB:-donationsystem}
       DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-donation}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-donationsystem}"
       DATABASE_URL_SYNC: "postgresql://${POSTGRES_USER:-donation}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-donationsystem}"
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@donationsystem.dev}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
     depends_on:
       postgres:
         condition: service_healthy

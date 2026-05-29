@@ -15,7 +15,8 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import (
@@ -27,6 +28,7 @@ from app.core.deps import (
     get_subscription_repo,
     get_tax_report_repo,
     require_admin,
+    require_admin_or_maintainer,
 )
 from app.models.user import User
 from app.repositories.user import UserRepository
@@ -47,6 +49,7 @@ from app.schemas.admin import (
 )
 from app.services.reconciliation import process_reconciliation_file
 from app.services.tax import generate_tax_csv, get_year_summary
+from app.services.email import notify_donation_success
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +72,10 @@ async def admin_list_donations(
     q: str | None = None,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=200),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_or_maintainer),
     donation_repo: DonationRepository = Depends(get_donation_repo),
 ):
-    """管理後台捐款列表（管理員權限）。
+    """管理後台捐款列表（管理員/捐款維護者權限）。
 
     對應 API 設計文件：5.1 捐款管理
     支援多維度篩選、分頁、全文搜尋。
@@ -115,6 +118,7 @@ async def admin_list_donations(
                     "name": d.guest_name if d.user_id is None else (d.user.name if d.user else None),
                 } if d.user_id or d.guest_email else None,
                 "amount": d.amount,
+                "purpose": d.purpose,
                 "payment_method": d.payment_method,
                 "status": d.status,
                 "is_recurring": d.is_recurring,
@@ -136,18 +140,36 @@ async def admin_list_donations(
 async def admin_update_donation_status(
     donation_id: UUID,
     req: DonationStatusUpdateRequest,
-    admin: User = Depends(require_admin),
+    background_tasks: BackgroundTasks,
+    admin: User = Depends(require_admin_or_maintainer),
     donation_repo: DonationRepository = Depends(get_donation_repo),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """管理後台更新捐款狀態（管理員權限）。
+    """管理後台更新捐款狀態（管理員/捐款維護者權限）。
 
     支援狀態：pending → success / failed / cancelled
+    當狀態更新為 success 時，自動寄送捐款確認郵件。
     """
     donation = await donation_repo.update(donation_id, status=req.status)
     if donation is None:
         raise HTTPException(status_code=404, detail="Donation not found")
     await session.commit()
+
+    # ── Send email notification when marked as success ────────
+    if req.status == "success":
+        # Re-fetch with user relationship eagerly loaded for email
+        from sqlalchemy.orm import selectinload
+        from app.models.donation import Donation
+        stmt = (
+            select(Donation)
+            .where(Donation.id == donation_id)
+            .options(selectinload(Donation.user))
+        )
+        result = await session.execute(stmt)
+        full_donation = result.scalar_one_or_none()
+        if full_donation:
+            background_tasks.add_task(notify_donation_success, full_donation)
+
     return {
         "id": donation_id,
         "status": req.status,

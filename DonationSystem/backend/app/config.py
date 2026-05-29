@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     # Cloud Storage
     storage_bucket: str = "donationsystem-receipts"
 
+    # SMTP / Email
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = False
+    email_from: str = "noreply@donationsystem.dev"
+    email_from_name: str = "捐款系統"
+    email_enabled: bool = True
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

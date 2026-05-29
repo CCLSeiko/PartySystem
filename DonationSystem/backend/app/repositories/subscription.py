@@ -4,6 +4,7 @@ from datetime import date
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.models.donation import Donation
 from app.models.subscription import Subscription
@@ -59,7 +60,7 @@ class SubscriptionRepository(BaseRepository[Subscription]):
             stmt = stmt.where(Subscription.user_id == user_id)
         if status is not None:
             stmt = stmt.where(Subscription.status == status)
-        stmt = stmt.offset(skip).limit(limit)
+        stmt = stmt.options(selectinload(Subscription.user)).offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

@@ -14,6 +14,7 @@ from app.database import get_db_session
 from app.models.user import User
 from app.repositories import (
     DonationRepository,
+    DonorAccountRepository,
     PaymentRepository,
     PostalDraftRepository,
     ReconciliationRepository,
@@ -94,6 +95,30 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+# ── Dependency: require admin OR donation_maintainer ────────────
+
+async def require_admin_or_maintainer(current_user: User = Depends(get_current_user)) -> User:
+    """Require the current user to have ``admin`` or ``donation_maintainer`` role."""
+    if current_user.role not in ("admin", "donation_maintainer"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or donation-maintainer privileges required",
+        )
+    return current_user
+
+
+# ── Dependency: require donation_maintainer only ───────────────
+
+async def require_donation_maintainer(current_user: User = Depends(get_current_user)) -> User:
+    """Require the current user to have the ``donation_maintainer`` role only."""
+    if current_user.role != "donation_maintainer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Donation-maintainer privileges required",
+        )
+    return current_user
+
+
 # ── Optional user (endpoints that work for both auth and anonymous) ──
 
 async def get_optional_user(
@@ -141,3 +166,7 @@ def get_reconciliation_repo(session: AsyncSession = Depends(get_db_session)) -> 
 
 def get_tax_report_repo(session: AsyncSession = Depends(get_db_session)) -> TaxReportRepository:
     return TaxReportRepository(session)
+
+
+def get_donor_account_repo(session: AsyncSession = Depends(get_db_session)) -> DonorAccountRepository:
+    return DonorAccountRepository(session)

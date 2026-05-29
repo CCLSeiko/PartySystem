@@ -110,6 +110,7 @@ class AdminDonationItem(BaseModel):
     id: UUID
     user: dict | None  # {id, email, name} or None for anonymous
     amount: Decimal
+    purpose: str | None
     payment_method: str
     status: str
     is_recurring: bool

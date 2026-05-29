@@ -12,7 +12,7 @@ export function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  if (pathname.startsWith('/member') || pathname.startsWith('/admin')) return null;
+  if (pathname.startsWith('/member') || pathname.startsWith('/admin') || pathname.startsWith('/maintainer')) return null;
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -36,6 +36,11 @@ export function Navbar() {
                 {user.role === 'admin' && (
                   <Link href="/admin/dashboard" className="text-gray-600 hover:text-amber-600 transition-colors">
                     管理後台
+                  </Link>
+                )}
+                {user.role === 'donation_maintainer' && (
+                  <Link href="/maintainer/dashboard" className="text-gray-600 hover:text-emerald-600 transition-colors">
+                    捐款維護
                   </Link>
                 )}
                 <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
@@ -82,6 +87,11 @@ export function Navbar() {
                 {user.role === 'admin' && (
                   <Link href="/admin/dashboard" className="block text-amber-600" onClick={() => setMenuOpen(false)}>
                     管理後台
+                  </Link>
+                )}
+                {user.role === 'donation_maintainer' && (
+                  <Link href="/maintainer/dashboard" className="block text-emerald-600" onClick={() => setMenuOpen(false)}>
+                    捐款維護
                   </Link>
                 )}
                 <hr className="my-2" />
