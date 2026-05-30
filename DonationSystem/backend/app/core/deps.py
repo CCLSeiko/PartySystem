@@ -19,6 +19,7 @@ from app.repositories import (
     PostalDraftRepository,
     ReconciliationRepository,
     SubscriptionRepository,
+    SystemSettingRepository,
     TaxReportRepository,
     UserRepository,
 )
@@ -170,3 +171,7 @@ def get_tax_report_repo(session: AsyncSession = Depends(get_db_session)) -> TaxR
 
 def get_donor_account_repo(session: AsyncSession = Depends(get_db_session)) -> DonorAccountRepository:
     return DonorAccountRepository(session)
+
+
+def get_system_setting_repo(session: AsyncSession = Depends(get_db_session)) -> SystemSettingRepository:
+    return SystemSettingRepository(session)

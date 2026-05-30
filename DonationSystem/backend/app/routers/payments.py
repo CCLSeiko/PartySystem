@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -39,6 +39,7 @@ from app.schemas.payment import (
     PostalPaymentResponse,
 )
 from app.services.draft import generate_draft_number
+from app.services.pdf import generate_postal_draft_pdf, _amount_in_words
 from app.services.stripe import create_payment_intent as stripe_create_pi
 from app.services.webhook import stripe as stripe_webhook
 from app.services.webhook import spgateway as spgateway_webhook
@@ -201,15 +202,43 @@ async def postal_payment(
 
 
 @router.get("/postal/{draft_id}/download")
-async def download_postal_draft(draft_id: UUID):
+async def download_postal_draft(
+    draft_id: UUID,
+    draft_repo: PostalDraftRepository = Depends(get_postal_draft_repo),
+    session: AsyncSession = Depends(get_db_session),
+):
     """下載郵政劃撥單 PDF。
 
     對應 API 設計文件：3.3 下載劃撥單
-    TODO: 實作 PDF 產生引擎後補實。
     """
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Postal draft PDF generation not yet implemented",
+    draft = await draft_repo.get(draft_id)
+    if draft is None:
+        raise HTTPException(status_code=404, detail="Postal draft not found")
+
+    # Resolve donor name from linked donation
+    donation = draft.donation
+    donor_name = (
+        donation.guest_name
+        or (donation.user.name if donation.user else None)
+        or "捐款人"
+    )
+
+    pdf_bytes = generate_postal_draft_pdf(
+        draft_number=draft.draft_number,
+        donor_name=donor_name,
+        donor_address=None,
+        amount=draft.amount,
+        amount_in_words=_amount_in_words(draft.amount),
+        postal_account=draft.postal_account,
+        org_name="捐款系統",
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="postal_draft_{draft.draft_number}.pdf"',
+        },
     )
 
 

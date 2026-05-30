@@ -260,3 +260,95 @@ async def notify_donation_success(
         payment_method=donation.payment_method,
         receipt_number=donation.receipt_number,
     )
+
+
+# ── Password Reset Email ────────────────────────────────────────
+
+_PASSWORD_RESET_TPL = """\
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC','Microsoft JhengHei',sans-serif;">
+<table width="100%%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+  <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+    <!-- Header -->
+    <tr>
+      <td style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);padding:40px 32px;text-align:center;">
+        <h1 style="color:#ffffff;font-size:22px;margin:0;font-weight:700;">密碼重設</h1>
+        <p style="color:#bfdbfe;font-size:14px;margin:8px 0 0;">請點擊下方連結重設您的密碼</p>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr><td style="padding:32px;">
+      <p style="font-size:15px;color:#374151;margin:0 0 20px;">{name} 您好，</p>
+      <p style="font-size:15px;color:#374151;margin:0 0 24px;">我們收到您重設密碼的請求，請點擊下方按鈕進行重設：</p>
+
+      <table width="100%%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="padding:16px 0;">
+            <a href="{reset_url}" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:14px 36px;border-radius:8px;">重設密碼</a>
+          </td>
+        </tr>
+      </table>
+
+      <p style="font-size:13px;color:#9ca3af;margin:24px 0 0;line-height:1.6;">
+        若您未申請重設密碼，請忽略此信件。<br>
+        此連結將於 {expires_minutes} 分鐘後失效。<br>
+        若按鈕無法點擊，請複製以下網址至瀏覽器開啟：<br>
+        <span style="color:#3b82f6;word-break:break-all;">{reset_url}</span>
+      </p>
+    </td></tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="background:#f9fafb;padding:24px 32px;text-align:center;border-top:1px solid #e5e7eb;">
+        <p style="font-size:12px;color:#9ca3af;margin:0;">{org_name}</p>
+      </td>
+    </tr>
+  </table>
+</td></tr></table>
+</body>
+</html>
+"""
+
+
+async def send_password_reset_email(
+    to_email: str,
+    name: str,
+    token: str,
+    expires_minutes: int = 60,
+) -> bool:
+    """Send a password reset email with a one-time token link.
+
+    Args:
+        to_email:        Recipient email address.
+        name:            Display name of the user.
+        token:           One-time reset token.
+        expires_minutes: Token validity in minutes (default: 60).
+
+    Returns:
+        True if sent (or email disabled), False on failure.
+    """
+    if not to_email:
+        logger.warning("[email] No recipient email for password reset — skipping")
+        return False
+
+    # Build reset URL (frontend route)
+    reset_url = f"{settings.app_url}/password/reset?token={token}" if hasattr(settings, 'app_url') and settings.app_url else f"/password/reset?token={token}"
+
+    html = _PASSWORD_RESET_TPL.format(
+        name=name,
+        reset_url=reset_url,
+        expires_minutes=expires_minutes,
+        org_name=settings.app_name,
+    )
+
+    subject = f"密碼重設 — {settings.app_name}"
+
+    import asyncio
+    return await asyncio.to_thread(_send_sync, to_email, subject, html)

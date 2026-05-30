@@ -42,6 +42,10 @@ class User(Base):
     # Role (user / donation_maintainer / admin)
     role = Column(String(20), default="user", nullable=False)
 
+    # Password reset
+    password_reset_token = Column(String(255), nullable=True, index=True)
+    password_reset_token_expires = Column(DateTime, nullable=True)
+
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

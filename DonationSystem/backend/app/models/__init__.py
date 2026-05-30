@@ -8,6 +8,7 @@ from app.models.postal_draft import PostalDraft
 from app.models.reconciliation import ReconciliationRecord
 from app.models.tax_report import TaxReport
 from app.models.donor_account import DonorAccount
+from app.models.system_setting import SystemSetting
 
 __all__ = [
     "User",
@@ -17,4 +18,6 @@ __all__ = [
     "PostalDraft",
     "ReconciliationRecord",
     "TaxReport",
+    "DonorAccount",
+    "SystemSetting",
 ]

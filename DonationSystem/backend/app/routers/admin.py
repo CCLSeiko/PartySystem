@@ -11,6 +11,7 @@ Implements all admin endpoints:
 
 import csv
 import io
+import json
 import logging
 from datetime import datetime
 from uuid import UUID
@@ -27,6 +28,7 @@ from app.core.deps import (
     get_reconciliation_repo,
     get_subscription_repo,
     get_tax_report_repo,
+    get_system_setting_repo,
     require_admin,
     require_admin_or_maintainer,
 )
@@ -36,6 +38,7 @@ from app.repositories.donation import DonationRepository
 from app.repositories.reconciliation import ReconciliationRepository
 from app.repositories.subscription import SubscriptionRepository
 from app.repositories.tax_report import TaxReportRepository
+from app.repositories.system_setting import SystemSettingRepository
 from app.schemas.admin import (
     AdminSettingsRequest,
     AdminSettingsResponse,
@@ -514,41 +517,68 @@ async def get_tax_summary(
 #  Settings
 # ═══════════════════════════════════════════════════════════════
 
+_DEFAULT_SETTINGS: dict[str, object] = {
+    "min_donation_amount": 100,
+    "donation_purposes": ["general", "emergency_relief", "education", "medical", "other"],
+    "subscription_retry_limit": 3,
+    "auto_pause_after_failures": 3,
+}
+
 
 @router.get("/settings")
 async def get_settings(
     admin: User = Depends(require_admin),
+    settings_repo: SystemSettingRepository = Depends(get_system_setting_repo),
 ):
     """取得系統設定（管理員權限）。
 
-    回傳預設值（尚未實作資料庫儲存機制）。
+    從資料庫讀取已儲存的設定，未儲存的欄位回傳預設值。
+    支援部分覆蓋：只回傳有被修改過的設定值。
     """
-    return {
-        "min_donation_amount": 100,
-        "donation_purposes": ["general", "emergency_relief", "education", "medical", "other"],
-        "subscription_retry_limit": 3,
-        "auto_pause_after_failures": 3,
-    }
+    db_settings = await settings_repo.get_all_as_dict()
+
+    # Merge: DB values override defaults
+    result = dict(_DEFAULT_SETTINGS)
+    for key, raw_value in db_settings.items():
+        if key == "donation_purposes":
+            try:
+                result[key] = json.loads(raw_value)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        elif key in ("min_donation_amount", "subscription_retry_limit", "auto_pause_after_failures"):
+            try:
+                result[key] = int(raw_value)
+            except (ValueError, TypeError):
+                pass
+
+    return result
 
 
 @router.put("/settings", response_model=AdminSettingsResponse)
 async def update_settings(
     req: AdminSettingsRequest,
     admin: User = Depends(require_admin),
+    settings_repo: SystemSettingRepository = Depends(get_system_setting_repo),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """系統設定更新（管理員權限）。
 
     對應 API 設計文件：5.9 系統設定
-    TODO: 實作 Settings 儲存機制後補實。
+    將設定實際寫入資料庫 system_settings 表。
     """
     updated = []
     if req.min_donation_amount is not None:
+        await settings_repo.upsert("min_donation_amount", str(req.min_donation_amount))
         updated.append("min_donation_amount")
     if req.donation_purposes is not None:
+        await settings_repo.upsert("donation_purposes", json.dumps(req.donation_purposes))
         updated.append("donation_purposes")
     if req.subscription_retry_limit is not None:
+        await settings_repo.upsert("subscription_retry_limit", str(req.subscription_retry_limit))
         updated.append("subscription_retry_limit")
     if req.auto_pause_after_failures is not None:
+        await settings_repo.upsert("auto_pause_after_failures", str(req.auto_pause_after_failures))
         updated.append("auto_pause_after_failures")
 
+    await session.commit()
     return AdminSettingsResponse(updated_fields=updated)

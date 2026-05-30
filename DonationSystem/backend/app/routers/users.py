@@ -1,9 +1,10 @@
 """User API routers — full implementation with Auth + Repository."""
 
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -15,7 +16,9 @@ from app.core.deps import (
 from app.core.security import UserRole, create_access_token
 from app.models.user import User
 from app.repositories.user import UserRepository
+from app.services.email import send_password_reset_email
 from app.schemas.user import (
+    PasswordResetConfirmRequest,
     PasswordResetRequest,
     TaxConsentRequest,
     UserLoginRequest,
@@ -143,13 +146,80 @@ async def update_tax_consent(
 
 
 @router.post("/password/reset", response_model=dict)
-async def reset_password(req: PasswordResetRequest):
-    """密碼重設（寄送重設信）— placeholder，待 Email 服務就緒。
+async def reset_password(
+    req: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    repo: UserRepository = Depends(get_user_repo),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """密碼重設 — 產生一次性 Token 並寄送重設信。
 
     出於安全考量，不論 Email 是否存在皆回傳相同訊息。
+    若 Email 存在：
+    - 產生 64 字元隨機 Token
+    - 設定 60 分鐘有效期
+    - 透過 Email 寄送重設連結
     """
-    # TODO: 實作重設 Token 產生 + Email 寄送
+    user = await repo.get_by_email(req.email)
+
+    if user:
+        # Generate reset token (64 hex chars = 256-bit)
+        token = secrets.token_urlsafe(48)
+        expires = datetime.utcnow() + timedelta(minutes=60)
+
+        user.password_reset_token = token
+        user.password_reset_token_expires = expires
+        await session.flush()
+
+        # Send email in background
+        background_tasks.add_task(
+            send_password_reset_email,
+            to_email=user.email,
+            name=user.name,
+            token=token,
+            expires_minutes=60,
+        )
+
+    await session.commit()
     return {
         "message": "如果該 Email 已註冊，重設連結已寄送",
         "email": req.email,
+    }
+
+
+@router.post("/password/reset/confirm", response_model=dict)
+async def confirm_password_reset(
+    req: PasswordResetConfirmRequest,
+    repo: UserRepository = Depends(get_user_repo),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """確認密碼重設 — 使用 Token 更新密碼。
+
+    驗證 Token 有效且未過期後，更新密碼。
+    Token 使用後立即失效（一次性使用）。
+    """
+    # Find user by token
+    user = await repo.get_by_reset_token(req.token)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="無效或已過期的重設連結",
+        )
+
+    # Check expiry
+    if user.password_reset_token_expires is None or datetime.utcnow() > user.password_reset_token_expires:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="重設連結已過期，請重新申請",
+        )
+
+    # Update password and clear token
+    await repo.update_password(user.id, req.new_password)
+    user.password_reset_token = None
+    user.password_reset_token_expires = None
+    await session.commit()
+
+    return {
+        "message": "密碼重設成功",
+        "updated_at": datetime.utcnow().isoformat(),
     }

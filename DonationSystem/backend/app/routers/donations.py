@@ -11,7 +11,7 @@ Supports:
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import (
@@ -31,6 +31,7 @@ from app.schemas.donation import (
     PaymentInfo,
 )
 from app.services.receipt import generate_receipt_number
+from app.services.pdf import generate_donation_receipt_pdf, _amount_in_words
 
 router = APIRouter(prefix="/api/donations", tags=["Donations"])
 
@@ -259,15 +260,14 @@ async def download_receipt(
     donation_id: UUID,
     current_user: User = Depends(get_current_user),
     repo: DonationRepository = Depends(get_donation_repo),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """下載捐款收據 PDF。
 
     對應 API 設計文件：2.5 下載捐款收據
-
-    注意：PDF 產生引擎尚未實作，目前回傳 placeholder。
-    待收據服務就緒後補實。
+    僅限成功（success）狀態的捐款可以下載。
     """
-    donation = await repo.get(donation_id)
+    donation = await repo.get_with_payment(donation_id)
     if donation is None:
         raise HTTPException(status_code=404, detail="Donation not found")
 
@@ -280,8 +280,38 @@ async def download_receipt(
             detail=f"Receipt not available for status '{donation.status}'",
         )
 
-    # TODO: 產生 PDF 收據並回傳
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Receipt PDF generation not yet implemented",
+    if not donation.receipt_number:
+        # Auto-generate receipt number if missing
+        rcp_num = generate_receipt_number(donation.id)
+        donation.receipt_number = rcp_num
+        await session.flush()
+        await session.commit()
+    else:
+        rcp_num = donation.receipt_number
+
+    # Resolve donor name
+    donor_name = (
+        donation.guest_name
+        or (donation.user.name if donation.user else None)
+        or "捐款人"
+    )
+
+    pdf_bytes = generate_donation_receipt_pdf(
+        receipt_number=rcp_num,
+        donor_name=donor_name,
+        donor_email=donation.guest_email or (donation.user.email if donation.user else None),
+        amount=donation.amount,
+        amount_in_words=_amount_in_words(donation.amount),
+        purpose=donation.purpose,
+        payment_method=donation.payment_method,
+        donation_date=donation.created_at,
+        org_name="捐款系統",
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="receipt_{rcp_num}.pdf"',
+        },
     )

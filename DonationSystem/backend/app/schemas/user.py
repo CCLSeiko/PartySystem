@@ -36,6 +36,11 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr
 
 
+class PasswordResetConfirmRequest(BaseModel):
+    token: str = Field(..., description="Password reset token received via email")
+    new_password: str = Field(..., min_length=8, description="New password (min 8 chars)")
+
+
 class UserStatusUpdateRequest(BaseModel):
     is_active: bool
     reason: str | None = None

@@ -59,6 +59,16 @@ class UserRepository(BaseRepository[User]):
         await self.session.flush()
         return True
 
+    async def get_by_reset_token(self, token: str) -> User | None:
+        """Find a user by their password reset token."""
+        from datetime import datetime
+        stmt = select(User).where(
+            User.password_reset_token == token,
+            User.password_reset_token_expires >= datetime.utcnow(),
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def search_by_name_or_email(self, q: str, limit: int = 10) -> list[User]:
         """Search users by name or email (case-insensitive LIKE)."""
         stmt = (

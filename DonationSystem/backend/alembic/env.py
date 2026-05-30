@@ -30,6 +30,7 @@ from app.models import (          # noqa: F401 — needed by Alembic autogenerat
     ReconciliationRecord,
     TaxReport,
     DonorAccount,
+    SystemSetting,
 )
 
 target_metadata = Base.metadata
