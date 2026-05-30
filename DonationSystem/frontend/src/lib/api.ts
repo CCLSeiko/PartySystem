@@ -386,6 +386,13 @@ export const api = {
     return request('POST', '/maintenance/donors', input, getToken());
   },
 
+  async maintenanceGetDonorDonationHistory(donorId: string, params?: {
+    page?: number;
+    per_page?: number;
+  }): Promise<any> {
+    return request('GET', `/maintenance/donors/${donorId}/donation-history${qs(params || {})}`, undefined, getToken());
+  },
+
   async maintenanceUpdateDonor(id: string, input: {
     name?: string;
     email?: string;

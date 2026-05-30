@@ -67,6 +67,12 @@ class DonationRepository(BaseRepository[Donation]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def count_by_user(self, user_id: UUID) -> int:
+        """Count all donations for a specific user."""
+        stmt = select(func.count(Donation.id)).where(Donation.user_id == user_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one() or 0
+
     async def total_amount(self) -> float:
         """Sum of all successful donations."""
         stmt = select(func.sum(Donation.amount)).where(Donation.status == "success")

@@ -417,6 +417,73 @@ async def delete_donor(
 
 
 # ═══════════════════════════════════════════════════════════════
+#  Donor Donation History
+# ═══════════════════════════════════════════════════════════════
+
+
+@router.get("/donors/{donor_id}/donation-history", response_model=dict)
+async def get_donor_donation_history(
+    donor_id: UUID,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    maintainer: User = Depends(require_admin_or_maintainer),
+    user_repo: UserRepository = Depends(get_user_repo),
+    donation_repo: DonationRepository = Depends(get_donation_repo),
+):
+    """取得單一捐款人的完整捐款歷程（捐款維護者/管理員權限）。
+
+    回傳該捐款人的所有捐款紀錄（包含訂閱與單次捐款），
+    支援分頁。
+    """
+    user = await user_repo.get(donor_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Donor not found",
+        )
+
+    skip = (page - 1) * per_page
+    donations = await donation_repo.get_by_user(donor_id, skip=skip, limit=per_page)
+    total = await donation_repo.count_by_user(donor_id)
+    total_pages = (total + per_page - 1) // per_page
+
+    # Summary stats
+    total_amount = sum(float(d.amount) for d in donations if d.status == "success")
+
+    return {
+        "donor": {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email,
+        },
+        "data": [
+            {
+                "id": str(d.id),
+                "amount": float(d.amount),
+                "currency": d.currency,
+                "purpose": d.purpose,
+                "payment_method": d.payment_method,
+                "status": d.status,
+                "is_recurring": d.is_recurring,
+                "receipt_number": d.receipt_number,
+                "guest_name": d.guest_name,
+                "guest_email": d.guest_email,
+                "subscription_id": str(d.subscription_id) if d.subscription_id else None,
+                "created_at": d.created_at.isoformat(),
+                "updated_at": d.updated_at.isoformat(),
+            }
+            for d in donations
+        ],
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 #  Donor Account CRUD
 # ═══════════════════════════════════════════════════════════════
 

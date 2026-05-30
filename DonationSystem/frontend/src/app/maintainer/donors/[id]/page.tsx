@@ -8,7 +8,7 @@ import { formatDate, formatCurrency } from '@/lib/utils';
 import {
   ArrowLeft, Save, Trash2, AlertCircle, CheckCircle2, Loader2,
   User, Mail, Lock, Phone, MapPin, Fingerprint, Calendar, ShieldCheck,
-  Plus, CreditCard, Landmark, Building2, Home, Smartphone,
+  Plus, CreditCard, Landmark, Building2, Home, Smartphone, FileText,
 } from 'lucide-react';
 
 interface Account {
@@ -126,9 +126,17 @@ export default function EditDonorPage() {
           </button>
           <h1 className="text-2xl font-bold text-gray-900">編輯捐款人</h1>
         </div>
-        <button onClick={() => setDeleteConfirm(true)} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100">
-          <Trash2 className="w-4 h-4" /> 刪除
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/maintainer/donors/${donorId}/donations`)}
+            className="flex items-center gap-1 px-3 py-2 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+          >
+            <FileText className="w-4 h-4" /> 捐款歷程
+          </button>
+          <button onClick={() => setDeleteConfirm(true)} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100">
+            <Trash2 className="w-4 h-4" /> 刪除
+          </button>
+        </div>
       </div>
 
       {message && (
