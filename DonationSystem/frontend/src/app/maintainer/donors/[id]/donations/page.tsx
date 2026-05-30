@@ -48,9 +48,13 @@ interface HistoryResponse {
 export default function DonorDonationHistoryPage() {
   const router = useRouter();
   const params = useParams();
+  // For static export: params.id is always 'placeholder', extract real UUID from URL
+  // URL pattern: /maintainer/donors/{uuid}/donations
   const donorId = (params.id as string) !== 'placeholder'
     ? (params.id as string)
-    : (typeof window !== 'undefined' ? window.location.pathname.split('/').filter(p => p)[1] || '' : '');
+    : (typeof window !== 'undefined'
+        ? window.location.pathname.split('/').filter(p => p)[2] || ''
+        : '');
 
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<HistoryResponse | null>(null);
