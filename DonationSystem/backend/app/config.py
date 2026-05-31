@@ -1,4 +1,5 @@
 """Application configuration."""
+import secrets
 
 from pydantic_settings import BaseSettings
 from typing import Optional
@@ -11,7 +12,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/donationsystem"
-    database_url_sync: str = "postgresql://postgres:postgres@localhost:5432/donationsystem"
+    database_url_sync: str = "postgresql://postgres:***@localhost:5432/donationsystem"
 
     # JWT
     jwt_secret_key: str = "change-me-in-production"
@@ -35,18 +36,7 @@ class Settings(BaseSettings):
     gcp_credentials_path: Optional[str] = None
 
     # Redis
-    redis_url: str = "redis://localhost:6379/0"
-
-    # Cloud Storage
-    storage_bucket: str = "donationsystem-receipts"
-
-    # SMTP / Email
-    smtp_host: str = "localhost"
-    smtp_port: int = 1025
-    smtp_username: str | None = None
-    smtp_password: str | None = None
-    smtp_use_tls: bool = False
-    email_from: str = "noreply@donationsystem.dev"
+    redis_url: str = "redis://localhost:***@donationsystem.dev"
     email_from_name: str = "捐款系統"
     email_enabled: bool = True
 
@@ -54,3 +44,20 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# ── Startup safeguards ──────────────────────────────────────────
+
+if settings.jwt_secret_key in ("change-me-in-production", ""):
+    import warnings
+    warnings.warn(
+        "JWT_SECRET_KEY is still the default value! "
+        "Set a strong random key in .env for production.\n"
+        "  Generate one:  python3 -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+
+if not settings.encryption_key:
+    import warnings
+    warnings.warn(
+        "ENCRYPTION_KEY is not set — PII fields (identity_number) "
+        "will NOT be encrypted in storage!"
+    )

@@ -438,6 +438,11 @@ export const api = {
   // ── Maintenance: Subscriptions ──
   async maintenanceGetSubscriptions(params?: {
     status?: string;
+    payment_method?: string;
+    frequency?: string;
+    end_date_from?: string;
+    end_date_to?: string;
+    donor_keyword?: string;
     page?: number;
     per_page?: number;
   }): Promise<{

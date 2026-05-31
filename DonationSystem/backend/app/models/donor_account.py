@@ -37,7 +37,8 @@ class DonorAccount(Base):
 
     # ── Credit-card specific (nullable for other types) ───────
     card_issuing_bank = Column(String(100), nullable=True)
-    card_cvv = Column(String(10), nullable=True)              # Stored for manual verification
+    # ⚠️ PCI-DSS prohibits storing CVV — field is deprecated, new data should not populate it
+    card_cvv = Column(String(10), nullable=True)
     card_type = Column(String(20), nullable=True)             # visa / mastercard / jcb / unionpay
     card_number = Column(LargeBinary, nullable=True)          # AES-256-GCM encrypted
     card_number_iv = Column(LargeBinary, nullable=True)

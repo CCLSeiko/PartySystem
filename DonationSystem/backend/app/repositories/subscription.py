@@ -3,11 +3,12 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.models.donation import Donation
 from app.models.subscription import Subscription
+from app.models.user import User
 from app.repositories.base import BaseRepository
 
 
@@ -51,15 +52,40 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         self,
         user_id: UUID | None = None,
         status: str | None = None,
+        payment_method: str | None = None,
+        frequency: str | None = None,
+        end_date_from: date | None = None,
+        end_date_to: date | None = None,
+        donor_keyword: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> list[Subscription]:
         """Search subscriptions with optional filters."""
         stmt = select(Subscription).order_by(Subscription.created_at.desc())
+
         if user_id is not None:
             stmt = stmt.where(Subscription.user_id == user_id)
         if status is not None:
             stmt = stmt.where(Subscription.status == status)
+        if payment_method is not None:
+            stmt = stmt.where(Subscription.payment_method == payment_method)
+        if frequency is not None:
+            stmt = stmt.where(Subscription.frequency == frequency)
+        if end_date_from is not None:
+            stmt = stmt.where(Subscription.end_date >= end_date_from)
+        if end_date_to is not None:
+            stmt = stmt.where(Subscription.end_date <= end_date_to)
+
+        # donor_keyword — join with User and search name/email
+        if donor_keyword is not None and donor_keyword.strip():
+            keyword = f"%{donor_keyword.strip()}%"
+            stmt = stmt.join(Subscription.user).where(
+                or_(
+                    User.name.ilike(keyword),
+                    User.email.ilike(keyword),
+                )
+            )
+
         stmt = stmt.options(selectinload(Subscription.user)).offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -68,13 +94,37 @@ class SubscriptionRepository(BaseRepository[Subscription]):
         self,
         user_id: UUID | None = None,
         status: str | None = None,
+        payment_method: str | None = None,
+        frequency: str | None = None,
+        end_date_from: date | None = None,
+        end_date_to: date | None = None,
+        donor_keyword: str | None = None,
     ) -> int:
         """Count subscriptions matching filters (for pagination)."""
         stmt = select(func.count(Subscription.id))
+
         if user_id is not None:
             stmt = stmt.where(Subscription.user_id == user_id)
         if status is not None:
             stmt = stmt.where(Subscription.status == status)
+        if payment_method is not None:
+            stmt = stmt.where(Subscription.payment_method == payment_method)
+        if frequency is not None:
+            stmt = stmt.where(Subscription.frequency == frequency)
+        if end_date_from is not None:
+            stmt = stmt.where(Subscription.end_date >= end_date_from)
+        if end_date_to is not None:
+            stmt = stmt.where(Subscription.end_date <= end_date_to)
+
+        if donor_keyword is not None and donor_keyword.strip():
+            keyword = f"%{donor_keyword.strip()}%"
+            stmt = stmt.join(Subscription.user).where(
+                or_(
+                    User.name.ilike(keyword),
+                    User.email.ilike(keyword),
+                )
+            )
+
         result = await self.session.execute(stmt)
         return result.scalar_one()
 

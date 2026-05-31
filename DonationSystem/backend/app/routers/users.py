@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -14,6 +14,7 @@ from app.core.deps import (
     get_user_repo,
 )
 from app.core.security import UserRole, create_access_token
+from app.core.limiter import limiter
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.services.email import send_password_reset_email
@@ -32,7 +33,10 @@ router = APIRouter(prefix="/api/users", tags=["Users"])
 
 
 @router.post("/register", status_code=201, response_model=UserResponse)
-async def register(req: UserRegisterRequest, repo: UserRepository = Depends(get_user_repo)):
+@limiter.limit("5/minute")
+async def register(
+    request: Request,
+    req: UserRegisterRequest, repo: UserRepository = Depends(get_user_repo)):
     """註冊新使用者。
 
     - email 必須唯一
@@ -68,7 +72,10 @@ async def register(req: UserRegisterRequest, repo: UserRepository = Depends(get_
 
 
 @router.post("/login", response_model=UserLoginResponse)
-async def login(req: UserLoginRequest, repo: UserRepository = Depends(get_user_repo)):
+@limiter.limit("10/minute")
+async def login(
+    request: Request,
+    req: UserLoginRequest, repo: UserRepository = Depends(get_user_repo)):
     """使用者登入，回傳 JWT Token。
 
     驗證 Email + Password 後發放 Token，有效期 24 小時。
@@ -146,7 +153,9 @@ async def update_tax_consent(
 
 
 @router.post("/password/reset", response_model=dict)
+@limiter.limit("3/minute")
 async def reset_password(
+    request: Request,
     req: PasswordResetRequest,
     background_tasks: BackgroundTasks,
     repo: UserRepository = Depends(get_user_repo),

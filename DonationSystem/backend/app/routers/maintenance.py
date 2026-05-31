@@ -29,6 +29,7 @@ from app.core.deps import (
     get_user_repo,
     require_admin_or_maintainer,
 )
+from app.core.encryption import encrypt
 from app.models.user import User
 from app.repositories.donation import DonationRepository
 from app.repositories.donor_account import DonorAccountRepository
@@ -285,7 +286,8 @@ async def create_donor(
         phone_mobile=req.phone_mobile,
         phone_work=req.phone_work,
         address=req.address,
-        identity_number=req.identity_number.encode("utf-8") if req.identity_number else None,
+        identity_number=encrypt(req.identity_number)[0] if req.identity_number else None,
+        identity_number_iv=encrypt(req.identity_number)[1] if req.identity_number else None,
         birthday=req.birthday,
         tax_consent=req.tax_consent,
     )
@@ -357,13 +359,16 @@ async def update_donor(
     """
     update_data = req.model_dump(exclude_unset=True)
 
-    # identity_number is LargeBinary in DB — must be bytes, not str
+    # identity_number is LargeBinary in DB — encrypt before storing
     if "identity_number" in update_data:
         raw = update_data.pop("identity_number")
         if raw:
-            update_data["identity_number"] = raw.encode("utf-8")
+            ct, iv = encrypt(raw)
+            update_data["identity_number"] = ct
+            update_data["identity_number_iv"] = iv
         else:
             update_data["identity_number"] = None
+            update_data["identity_number_iv"] = None
 
     if not update_data:
         raise HTTPException(
@@ -521,7 +526,7 @@ async def list_donor_accounts(
             authorized_person=a.authorized_person,
             donation_amount=a.donation_amount,
             card_issuing_bank=a.card_issuing_bank,
-            card_cvv=a.card_cvv,
+            # card_cvv intentionally excluded (PCI-DSS)
             card_type=a.card_type,
             card_expiry_month=a.card_expiry_month,
             card_expiry_year=a.card_expiry_year,
@@ -558,7 +563,7 @@ async def create_donor_account(
         authorized_person=account.authorized_person,
         donation_amount=account.donation_amount,
         card_issuing_bank=account.card_issuing_bank,
-        card_cvv=account.card_cvv,
+        # card_cvv intentionally excluded (PCI-DSS)
         card_type=account.card_type,
         card_expiry_month=account.card_expiry_month,
         card_expiry_year=account.card_expiry_year,
@@ -595,7 +600,7 @@ async def get_donor_account(
         authorized_person=account.authorized_person,
         donation_amount=account.donation_amount,
         card_issuing_bank=account.card_issuing_bank,
-        card_cvv=account.card_cvv,
+        # card_cvv intentionally excluded (PCI-DSS)
         card_type=account.card_type,
         card_expiry_month=account.card_expiry_month,
         card_expiry_year=account.card_expiry_year,
@@ -647,7 +652,7 @@ async def update_donor_account(
         authorized_person=account.authorized_person,
         donation_amount=account.donation_amount,
         card_issuing_bank=account.card_issuing_bank,
-        card_cvv=account.card_cvv,
+        # card_cvv intentionally excluded (PCI-DSS)
         card_type=account.card_type,
         card_expiry_month=account.card_expiry_month,
         card_expiry_year=account.card_expiry_year,
@@ -744,6 +749,11 @@ async def create_maintenance_subscription(
 async def list_subscriptions(
     user_id: UUID | None = Query(None, description="依用戶篩選"),
     status: str | None = Query(None, description="依狀態篩選 (active/paused/cancelled/expired)"),
+    payment_method: str | None = Query(None, description="依付款方式篩選 (credit_card/postal/cash)"),
+    frequency: str | None = Query(None, description="依頻率篩選 (monthly/quarterly/yearly)"),
+    end_date_from: date | None = Query(None, description="結束日期起 (YYYY-MM-DD)"),
+    end_date_to: date | None = Query(None, description="結束日期迄 (YYYY-MM-DD)"),
+    donor_keyword: str | None = Query(None, min_length=1, description="捐款人關鍵字 (姓名或 Email)"),
     page: int = Query(default=1, ge=1, description="頁碼"),
     per_page: int = Query(default=15, ge=1, le=100, description="每頁筆數"),
     maintainer: User = Depends(require_admin_or_maintainer),
@@ -751,19 +761,29 @@ async def list_subscriptions(
 ):
     """列出所有定期定額捐款訂閱（捐款維護者/管理員權限）。
 
-    可依 user_id、status 篩選，支援分頁。
+    可依 user_id、status、payment_method、end_date 日期範圍、捐款人關鍵字篩選，支援分頁。
     回傳格式: {data: [...], pagination: {page, per_page, total, total_pages}}
     """
     skip = (page - 1) * per_page
     subs = await subscription_repo.search(
         user_id=user_id,
         status=status,
+        payment_method=payment_method,
+        frequency=frequency,
+        end_date_from=end_date_from,
+        end_date_to=end_date_to,
+        donor_keyword=donor_keyword,
         skip=skip,
         limit=per_page,
     )
     total = await subscription_repo.count_search(
         user_id=user_id,
         status=status,
+        payment_method=payment_method,
+        frequency=frequency,
+        end_date_from=end_date_from,
+        end_date_to=end_date_to,
+        donor_keyword=donor_keyword,
     )
     total_pages = (total + per_page - 1) // per_page
 

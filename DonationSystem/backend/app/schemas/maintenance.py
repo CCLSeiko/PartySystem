@@ -74,7 +74,7 @@ class DonorAccountCreateRequest(BaseModel):
     authorized_person: str = Field(..., max_length=100)
     donation_amount: Decimal = Field(..., gt=0, decimal_places=2)
     card_issuing_bank: str | None = Field(None, max_length=100)
-    card_cvv: str | None = Field(None, max_length=10)
+    card_cvv: str | None = Field(None, max_length=10)  # ⚠️ PCI-DSS: not returned by API; for legacy write only
     card_type: str | None = Field(None, pattern=r"^(visa|mastercard|jcb|unionpay)$")
     card_expiry_month: str | None = Field(None, pattern=r"^\d{2}$")
     card_expiry_year: str | None = Field(None, pattern=r"^\d{4}$")
@@ -92,7 +92,7 @@ class DonorAccountUpdateRequest(BaseModel):
     authorized_person: str | None = Field(None, max_length=100)
     donation_amount: Decimal | None = Field(None, gt=0, decimal_places=2)
     card_issuing_bank: str | None = Field(None, max_length=100)
-    card_cvv: str | None = Field(None, max_length=10)
+    card_cvv: str | None = Field(None, max_length=10)  # ⚠️ PCI-DSS: not returned by API; for legacy write only
     card_type: str | None = Field(None, pattern=r"^(visa|mastercard|jcb|unionpay)$")
     card_expiry_month: str | None = Field(None, pattern=r"^\d{2}$")
     card_expiry_year: str | None = Field(None, pattern=r"^\d{4}$")
@@ -112,7 +112,7 @@ class DonorAccountResponse(BaseModel):
     authorized_person: str
     donation_amount: Decimal
     card_issuing_bank: str | None = None
-    card_cvv: str | None = None
+    # ⚠️ PCI-DSS: CVV intentionally excluded from API responses
     card_type: str | None = None
     card_expiry_month: str | None = None
     card_expiry_year: str | None = None
