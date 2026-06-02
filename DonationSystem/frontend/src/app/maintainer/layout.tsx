@@ -12,7 +12,7 @@ export default function MaintainerLayout({ children }: { children: React.ReactNo
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
-    } else if (!loading && user && user.role !== 'donation_maintainer' && user.role !== 'admin') {
+    } else if (!loading && user && user.role !== 'donation_maintainer' && user.role !== 'data_maintainer' && user.role !== 'admin') {
       router.push('/member/dashboard');
     }
   }, [user, loading, router]);
@@ -25,7 +25,7 @@ export default function MaintainerLayout({ children }: { children: React.ReactNo
     );
   }
 
-  if (user.role !== 'donation_maintainer' && user.role !== 'admin') {
+  if (user.role !== 'donation_maintainer' && user.role !== 'data_maintainer' && user.role !== 'admin') {
     return null;
   }
 

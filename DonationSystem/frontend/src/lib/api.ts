@@ -109,8 +109,8 @@ export const api = {
     return request('POST', '/users/register', input);
   },
 
-  async login(email: string, password: string): Promise<{ access_token: string }> {
-    const result = await request<{ access_token: string }>('POST', '/users/login', { email, password });
+  async login(email: string, password: string): Promise<{ access_token: string; force_password_change: boolean }> {
+    const result = await request<{ access_token: string; force_password_change: boolean }>('POST', '/users/login', { email, password });
     setToken(result.access_token);
     return result;
   },
@@ -143,6 +143,10 @@ export const api = {
     return request('PUT', '/users/me/tax-consent', { tax_consent }, getToken());
   },
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    return request('PUT', '/users/me/password', { current_password: currentPassword, new_password: newPassword }, getToken());
+  },
+
   // ── Donations ──
   async createDonation(input: {
     amount: number;
@@ -153,6 +157,18 @@ export const api = {
     guest_name?: string;
   }): Promise<{ id: string }> {
     return request('POST', '/donations', input, getToken());
+  },
+
+  // ── Public Subscription (for donate page) ──
+  async createSubscription(input: {
+    amount: number;
+    frequency: string;
+    payment_method: string;
+    purpose?: string;
+    guest_email?: string;
+    guest_name?: string;
+  }): Promise<{ id: string }> {
+    return request('POST', '/subscriptions', input, getToken());
   },
 
   async getDonations(params?: {
@@ -494,6 +510,14 @@ export const api = {
   }): Promise<any> {
     const path = `/maintenance/subscriptions/stats/monthly${qs(params || {})}`;
     return request('GET', path, undefined, getToken());
+  },
+
+  // ── Maintenance: Password Reset ──
+  async maintenanceResetPassword(
+    donorId: string,
+    reason?: string,
+  ): Promise<{ message: string; temp_password: string; email: string; reason: string; force_password_change: boolean }> {
+    return request('POST', `/maintenance/donors/${donorId}/password-reset`, { reason }, getToken());
   },
 
   // ── Logout ──

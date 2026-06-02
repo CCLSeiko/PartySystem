@@ -46,6 +46,9 @@ class User(Base):
     password_reset_token = Column(String(255), nullable=True, index=True)
     password_reset_token_expires = Column(DateTime, nullable=True)
 
+    # Force password change on next login (set by admin/maintainer reset)
+    force_password_change = Column(Boolean, default=False, nullable=False)
+
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

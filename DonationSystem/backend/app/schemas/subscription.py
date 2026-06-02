@@ -13,9 +13,13 @@ class CreateSubscriptionRequest(BaseModel):
     amount: Decimal = Field(..., gt=0, decimal_places=2)
     currency: str = "TWD"
     frequency: str = Field(..., pattern=r"^(monthly|quarterly|yearly)$")
-    payment_method_id: str  # Stripe PaymentMethod ID
+    payment_method: str = Field(default="credit_card", pattern=r"^(credit_card|postal|cash)$")
+    payment_method_id: str | None = None  # Stripe PaymentMethod ID (optional for non-credit_card)
     total_cycles: int = Field(default=0, ge=0)  # 0 = indefinite
     purpose: str | None = None
+    # Guest (anonymous) fields
+    guest_email: str | None = None
+    guest_name: str | None = None
 
 
 class UpdateSubscriptionRequest(BaseModel):

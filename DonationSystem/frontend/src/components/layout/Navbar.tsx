@@ -38,7 +38,7 @@ export function Navbar() {
                     管理後台
                   </Link>
                 )}
-                {user.role === 'donation_maintainer' && (
+                {(user.role === 'donation_maintainer' || user.role === 'data_maintainer') && (
                   <Link href="/maintainer/dashboard" className="text-gray-600 hover:text-emerald-600 transition-colors">
                     捐款維護
                   </Link>
@@ -89,7 +89,7 @@ export function Navbar() {
                     管理後台
                   </Link>
                 )}
-                {user.role === 'donation_maintainer' && (
+                {(user.role === 'donation_maintainer' || user.role === 'data_maintainer') && (
                   <Link href="/maintainer/dashboard" className="block text-emerald-600" onClick={() => setMenuOpen(false)}>
                     捐款維護
                   </Link>

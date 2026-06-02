@@ -51,8 +51,12 @@ function LoginForm() {
 
     setLoading(true);
     try {
-      await login(email, password);
-      // Auth context will update user, and the useEffect above will redirect
+      const result = await login(email, password);
+      if (result.forcePasswordChange) {
+        router.push('/member/change-password');
+      } else {
+        // Auth context will update user, and the useEffect above will redirect
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '登入失敗，請稍後再試';
       setError(msg);

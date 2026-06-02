@@ -28,6 +28,7 @@ from app.core.deps import (
     get_subscription_repo,
     get_user_repo,
     require_admin_or_maintainer,
+    require_data_maintainer,
 )
 from app.core.encryption import encrypt
 from app.models.user import User
@@ -47,7 +48,9 @@ from app.schemas.maintenance import (
 )
 from app.services.dates import compute_next_billing_date
 from app.services.receipt import generate_receipt_number
-from app.services.email import notify_donation_success
+from app.services.email import notify_donation_success, send_password_reset_email
+from app.core.security import hash_password
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -1173,4 +1176,69 @@ async def get_monthly_subscription_stats(
         "currency": "TWD",
         "status_breakdown": status_breakdown,
         "frequency_distribution": frequency_dist,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Donor Password Reset (initiated by data maintainer / admin)
+# ═══════════════════════════════════════════════════════════════
+
+
+class MaintenancePasswordResetRequest(BaseModel):
+    """Request to initiate a password reset for a donor by maintenance staff."""
+    reason: str | None = Field(None, max_length=500, description="重設原因")
+
+
+@router.post("/donors/{donor_id}/password-reset", response_model=dict, status_code=202)
+async def maintenance_initiate_password_reset(
+    donor_id: UUID,
+    req: MaintenancePasswordResetRequest | None = None,
+    maintainer: User = Depends(require_data_maintainer),
+    user_repo: UserRepository = Depends(get_user_repo),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """管理人員手動發起捐款人密碼重設。
+
+    流程：
+    1. 管理人員選擇要重設密碼的捐款人
+    2. 系統產生臨時密碼並寫入資料庫
+    3. 設定 force_password_change 標記
+    4. 捐款人下次登入時強制修改密碼
+
+    權限：admin 或 data_maintainer
+    """
+    # Verify donor exists
+    donor = await user_repo.get(donor_id)
+    if donor is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="捐款人不存在",
+        )
+
+    if donor.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"無法對 {donor.role} 角色帳號執行密碼重設",
+        )
+
+    # Generate temporary password (12 chars)
+    temp_password = secrets.token_urlsafe(12)
+    reason = req.reason if req and req.reason else "管理人員協助重設"
+
+    # Hash and save new password, set force_password_change flag
+    donor.password_hash = hash_password(temp_password)
+    donor.force_password_change = True
+    # Clear any old reset tokens
+    donor.password_reset_token = None
+    donor.password_reset_token_expires = None
+    await session.flush()
+
+    await session.commit()
+
+    return {
+        "message": "密碼已重設",
+        "temp_password": temp_password,
+        "email": donor.email,
+        "reason": reason,
+        "force_password_change": True,
     }

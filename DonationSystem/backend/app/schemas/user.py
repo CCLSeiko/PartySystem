@@ -44,6 +44,9 @@ class PasswordResetConfirmRequest(BaseModel):
 class UserStatusUpdateRequest(BaseModel):
     is_active: bool
     reason: str | None = None
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., description="目前密碼")
+    new_password: str = Field(..., min_length=8, description="新密碼（最少 8 字元）")
 
 
 # ── Response ───────────────────────────────────────────────────
@@ -57,6 +60,7 @@ class UserResponse(BaseModel):
     tax_consent: bool
     role: str = "user"
     is_active: bool
+    force_password_change: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -66,6 +70,7 @@ class UserLoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int = 1440
+    force_password_change: bool = False
 
 
 class UserMinimal(BaseModel):

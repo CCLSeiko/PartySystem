@@ -7,7 +7,7 @@ import type { User } from '@/types';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ forcePasswordChange: boolean }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -41,9 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = useCallback(async (email: string, password: string) => {
-    await api.login(email, password);
+    const result = await api.login(email, password);
     const me = await api.getMe();
     setUser(me as User);
+    return { forcePasswordChange: result.force_password_change };
   }, []);
 
   const logout = useCallback(() => {

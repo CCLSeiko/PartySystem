@@ -38,6 +38,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 class UserRole(str, Enum):
     USER = "user"                    # Regular user / donor (default)
     DONATION_MAINTAINER = "donation_maintainer"  # Dedicated donation data maintainer
+    DATA_MAINTAINER = "data_maintainer"          # Donation data maintenance manager
     ADMIN = "admin"                  # Full back-office administrator
 
 

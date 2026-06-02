@@ -19,6 +19,7 @@ from app.models.user import User
 from app.repositories.user import UserRepository
 from app.services.email import send_password_reset_email
 from app.schemas.user import (
+    ChangePasswordRequest,
     PasswordResetConfirmRequest,
     PasswordResetRequest,
     TaxConsentRequest,
@@ -88,7 +89,10 @@ async def login(
         )
 
     token = create_access_token(subject=str(user.id), role=UserRole(user.role))
-    return UserLoginResponse(access_token=token)
+    return UserLoginResponse(
+        access_token=token,
+        force_password_change=user.force_password_change,
+    )
 
 
 @router.get("/me", response_model=UserResponse)
@@ -106,6 +110,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         tax_consent=current_user.tax_consent,
         role=current_user.role,
         is_active=current_user.is_active,
+        force_password_change=current_user.force_password_change,
         created_at=current_user.created_at,
     )
 
@@ -150,6 +155,30 @@ async def update_tax_consent(
         "tax_consent": req.tax_consent,
         "updated_at": datetime.utcnow().isoformat(),
     }
+
+
+@router.put("/me/password", response_model=dict)
+async def change_my_password(
+    req: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    repo: UserRepository = Depends(get_user_repo),
+):
+    """變更目前使用者密碼。"""
+    from app.core.security import verify_password, hash_password
+
+    # Verify current password
+    if not verify_password(req.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="目前密碼不正確",
+        )
+
+    # Update password and clear force_password_change flag
+    await repo.update_password(current_user.id, req.new_password)
+    current_user.force_password_change = False
+    await repo.session.commit()
+
+    return {"message": "密碼已變更"}
 
 
 @router.post("/password/reset", response_model=dict)

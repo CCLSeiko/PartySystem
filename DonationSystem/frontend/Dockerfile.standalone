@@ -1,0 +1,43 @@
+# ============================================================
+# DonationSystem — Frontend Standalone Server
+# Multi-stage: builds Next.js standalone, runs Node.js server
+# ============================================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependency manifests
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm ci --no-audit --no-fund
+
+# Copy source code
+COPY tsconfig.json next.config.ts postcss.config.mjs eslint.config.mjs ./
+COPY public/ public/
+COPY src/ src/
+
+# Build standalone
+RUN npm run build
+
+# Copy static files into standalone for self-contained runtime
+RUN cp -r .next/static .next/standalone/.next/static
+
+# ── Production stage ──
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy standalone build
+COPY --from=builder /app/.next/standalone ./
+
+# Copy public assets if needed
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+
+CMD ["node", "server.js"]

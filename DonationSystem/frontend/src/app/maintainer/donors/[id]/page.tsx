@@ -47,6 +47,9 @@ export default function EditDonorPage() {
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [resetPwConfirm, setResetPwConfirm] = useState(false);
+  const [resetPwReason, setResetPwReason] = useState('');
+  const [resetPwResult, setResetPwResult] = useState<{ type: 'success' | 'error'; text: string; tempPassword?: string } | null>(null);
 
   useEffect(() => {
     if (donorId && donorId !== 'placeholder') {
@@ -115,6 +118,24 @@ export default function EditDonorPage() {
     }
   }
 
+  async function handleResetPassword() {
+    setSaving(true);
+    setResetPwResult(null);
+    try {
+      const result = await api.maintenanceResetPassword(donorId, resetPwReason || undefined);
+      setResetPwConfirm(false);
+      setResetPwResult({
+        type: 'success',
+        text: `密碼已重設！請將以下臨時密碼提供給捐款人，下次登入時系統會要求修改密碼。`,
+        tempPassword: result.temp_password,
+      });
+    } catch (err) {
+      setResetPwResult({ type: 'error', text: err instanceof ApiError ? err.message : '密碼重設失敗' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -136,6 +157,9 @@ export default function EditDonorPage() {
           <button onClick={() => setDeleteConfirm(true)} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100">
             <Trash2 className="w-4 h-4" /> 刪除
           </button>
+          <button onClick={() => setResetPwConfirm(true)} className="flex items-center gap-1 px-3 py-2 text-sm text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100">
+            <Lock className="w-4 h-4" /> 重設密碼
+          </button>
         </div>
       </div>
 
@@ -154,6 +178,42 @@ export default function EditDonorPage() {
             <button onClick={() => setDeleteConfirm(false)} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg">取消</button>
           </div>
         </Card>
+      )}
+
+      {resetPwConfirm && (
+        <Card className="p-4 border-amber-200 bg-amber-50">
+          <p className="text-sm text-amber-800 font-medium mb-2">🔑 重設捐款人密碼</p>
+          <p className="text-sm text-amber-700 mb-3">系統將產生臨時密碼，請將密碼提供給捐款人。捐款人下次登入時會要求修改密碼。</p>
+          <div className="mb-3">
+            <label className="block text-xs text-amber-700 mb-1">重設原因（選填）</label>
+            <input
+              value={resetPwReason}
+              onChange={e => setResetPwReason(e.target.value)}
+              placeholder="例如：捐款人忘記密碼要求重設"
+              className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleResetPassword} disabled={saving} className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+              寄送重設信件
+            </button>
+            <button onClick={() => setResetPwConfirm(false)} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg">取消</button>
+          </div>
+        </Card>
+      )}
+
+      {resetPwResult && (
+        <div className={`flex items-start gap-2 p-3 rounded-xl border ${resetPwResult.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          {resetPwResult.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" /> : <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" />}
+          <p className={`text-sm ${resetPwResult.type === 'success' ? 'text-green-700' : 'text-red-600'}`}>{resetPwResult.text}</p>
+          {resetPwResult.tempPassword && (
+            <div className="mt-2 p-2 bg-white rounded-lg border border-green-200">
+              <p className="text-xs text-gray-500 mb-1">臨時密碼：</p>
+              <code className="text-sm font-mono font-bold text-green-800 select-all">{resetPwResult.tempPassword}</code>
+            </div>
+          )}
+        </div>
       )}
 
       <Card className="p-6">

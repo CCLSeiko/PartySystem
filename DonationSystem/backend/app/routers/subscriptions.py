@@ -13,11 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import (
     get_current_user,
     get_db_session,
+    get_optional_user,
+    get_user_repo,
     get_subscription_repo,
 )
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.repositories.subscription import SubscriptionRepository
+from app.repositories.user import UserRepository
 from app.schemas.subscription import (
     CancelSubscriptionRequest,
     CancelSubscriptionResponse,
@@ -29,6 +32,8 @@ from app.schemas.subscription import (
     UpdateSubscriptionRequest,
     UpdateSubscriptionResponse,
 )
+import secrets
+
 from app.services.dates import compute_next_billing_date
 
 router = APIRouter(prefix="/api/subscriptions", tags=["Subscriptions"])
@@ -37,34 +42,60 @@ router = APIRouter(prefix="/api/subscriptions", tags=["Subscriptions"])
 @router.post("", status_code=201, response_model=CreateSubscriptionResponse)
 async def create_subscription(
     req: CreateSubscriptionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_optional_user),
     repo: SubscriptionRepository = Depends(get_subscription_repo),
+    user_repo: UserRepository = Depends(get_user_repo),
     session: AsyncSession = Depends(get_db_session),
 ):
     """建立定期定額捐款方案。
 
     對應 API 設計文件：4.1 建立定期定額捐款
 
-    - 首次扣款日設為今日（代表首次扣款立即執行）
-    - ``total_cycles=0`` 表示無限期
-    - 首次捐款會透過 Stripe PaymentMethod 立即扣款
-      （待金流整合後補實）
+    - 已登入會員直接建立
+    - 匿名用戶需提供 guest_email，系統會自動建立會員帳號
+    - payment_method_id 僅信用卡需要，郵政劃撥/現金不需提供
     """
+
+    # ── Resolve or create user ──────────────────────────────
+    if current_user:
+        user = current_user
+    elif req.guest_email:
+        # Check if user already exists
+        existing = await user_repo.get_by_email(req.guest_email)
+        if existing:
+            user = existing
+        else:
+            default_password = secrets.token_urlsafe(16)
+            user = await user_repo.create_user(
+                email=req.guest_email,
+                password=default_password,
+                name=req.guest_name or req.guest_email.split("@")[0],
+                role="user",
+            )
+            await session.flush()
+    else:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Logged-in user or guest_email is required for subscriptions",
+        )
+
     today = date.today()
     next_billing = compute_next_billing_date(today, req.frequency)
 
     subscription = await repo.create(
-        user_id=current_user.id,
+        user_id=user.id,
         amount=req.amount,
         currency=req.currency,
         frequency=req.frequency,
-        payment_method="credit_card",
+        payment_method=req.payment_method,
         gateway_payment_method_id=req.payment_method_id,
         total_cycles=req.total_cycles,
-        cycles_completed=0,       # Will be incremented after first charge
+        cycles_completed=0,
         status="active",
         next_billing_date=next_billing,
         consecutive_failures=0,
+        purpose=req.purpose,
     )
 
     await session.commit()

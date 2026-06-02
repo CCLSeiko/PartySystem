@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { api, ApiError } from '@/lib/api';
 import { Card } from '@/components/ui';
-import { getPurposeLabel, getMethodLabel } from '@/lib/utils';
+import { getPurposeLabel, getMethodLabel, getFrequencyLabel } from '@/lib/utils';
 import type { PaymentMethod, DonationPurpose } from '@/types';
 import StripeCardForm from '@/components/payment/StripeCardForm';
 import StripePaymentWrapper from '@/components/payment/StripePaymentWrapper';
@@ -23,10 +23,17 @@ import {
   Building,
   Printer,
   Download,
+  Repeat,
 } from 'lucide-react';
 
 // --- Constants ---
 const QUICK_AMOUNTS = [100, 300, 500, 1000, 3000];
+
+const FREQUENCIES = [
+  { value: 'monthly', label: '每月' },
+  { value: 'quarterly', label: '每季' },
+  { value: 'yearly', label: '每年' },
+] as const;
 
 const PURPOSES: { value: DonationPurpose; icon: string; desc: string }[] = [
   { value: 'general', icon: '❤️', desc: '不指定用途，由本會統籌運用' },
@@ -41,6 +48,8 @@ const PAYMENT_METHODS: { value: PaymentMethod; icon: React.ReactNode; desc: stri
   { value: 'postal', icon: <Landmark className="w-5 h-5" />, desc: '下載郵政劃撥單' },
   { value: 'cash', icon: <Banknote className="w-5 h-5" />, desc: '現金捐款登記' },
 ];
+
+type DonationMode = 'once' | 'monthly';
 
 // --- Step Indicator ---
 function StepIndicator({ current, total, labels }: { current: number; total: number; labels: string[] }) {
@@ -88,10 +97,14 @@ export default function DonatePage() {
   const { user } = useAuth();
   const router = useRouter();
 
+  // --- Mode ---
+  const [mode, setMode] = useState<DonationMode>('once');
+
   // --- State ---
   const [step, setStep] = useState(0);
   const [amount, setAmount] = useState<number | ''>('');
   const [customAmount, setCustomAmount] = useState('');
+  const [frequency, setFrequency] = useState<string>('monthly');
   const [purpose, setPurpose] = useState<DonationPurpose | ''>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [guestName, setGuestName] = useState('');
@@ -101,9 +114,11 @@ export default function DonatePage() {
 
   // Result states
   const [result, setResult] = useState<{
-    type: 'credit_card' | 'postal' | 'cash';
-    donationId: string;
+    type: 'once' | 'subscription';
+    donationId?: string;
+    subscriptionId?: string;
     amount: number;
+    frequency?: string;
     clientSecret?: string;
     postalAccount?: string;
     draftNumber?: string;
@@ -111,8 +126,13 @@ export default function DonatePage() {
   const [paymentDone, setPaymentDone] = useState(false);
 
   const isLoggedIn = !!user;
-  const totalSteps = isLoggedIn ? 3 : 4;
-  const stepLabels = isLoggedIn
+  const isSubscription = mode === 'monthly';
+  const totalSteps = isSubscription ? (isLoggedIn ? 3 : 4) : (isLoggedIn ? 3 : 4);
+  const stepLabels = isSubscription
+    ? isLoggedIn
+      ? ['金額/頻率', '用途', '付款']
+      : ['金額/頻率', '用途', '付款', '資料']
+    : isLoggedIn
     ? ['金額', '用途', '付款']
     : ['金額', '用途', '付款', '資料'];
 
@@ -120,7 +140,9 @@ export default function DonatePage() {
   const canProceedFromStep = (s: number): boolean => {
     switch (s) {
       case 0:
-        return amount !== '' && (amount as number) > 0;
+        if (!isSubscription) return amount !== '' && (amount as number) > 0;
+        // Subscription: need amount AND frequency
+        return amount !== '' && (amount as number) > 0 && frequency !== '';
       case 1:
         return purpose !== '';
       case 2:
@@ -135,7 +157,7 @@ export default function DonatePage() {
   const handleNext = () => {
     setError('');
     if (!canProceedFromStep(step)) {
-      if (step === 0) setError('請選擇捐款金額');
+      if (step === 0) setError(isSubscription ? '請選擇捐款金額和頻率' : '請選擇捐款金額');
       else if (step === 1) setError('請選擇捐款用途');
       else if (step === 2) setError('請選擇付款方式');
       else if (step === 3) setError('請填寫捐款人資料');
@@ -155,7 +177,6 @@ export default function DonatePage() {
   };
 
   const handleCustomAmount = (val: string) => {
-    // Only allow digits
     const cleaned = val.replace(/\D/g, '');
     setCustomAmount(cleaned);
     if (cleaned) {
@@ -165,6 +186,14 @@ export default function DonatePage() {
     }
   };
 
+  const switchMode = (newMode: DonationMode) => {
+    if (newMode === mode) return;
+    setMode(newMode);
+    setStep(0);
+    setError('');
+    setFrequency('monthly');
+  };
+
   // --- Submit ---
   const handleSubmit = async () => {
     if (!amount || !purpose || !paymentMethod) return;
@@ -172,46 +201,62 @@ export default function DonatePage() {
     setLoading(true);
 
     try {
-      const donation = await api.createDonation({
-        amount: amount as number,
-        purpose,
-        payment_method: paymentMethod,
-        guest_email: isLoggedIn ? undefined : guestEmail.trim() || undefined,
-        guest_name: isLoggedIn ? undefined : guestName.trim() || undefined,
-      });
-
-      if (paymentMethod === 'credit_card') {
-        // Create payment intent (Elements mode — no payment_method_id)
-        const paymentIntent = await api.createCreditCardPayment({
-          donation_id: donation.id,
+      if (isSubscription) {
+        // ── Create subscription (recurring donation) ──
+        const sub = await api.createSubscription({
           amount: amount as number,
-        } as import('@/types').CreditCardPayment);
-        setResult({
-          type: 'credit_card',
-          donationId: donation.id,
-          amount: amount as number,
-          clientSecret: paymentIntent.client_secret,
-        });
-      } else if (paymentMethod === 'postal') {
-        // Generate postal draft
-        const postalDraft = await api.createPostalDraft({
-          donation_id: donation.id,
-          amount: amount as number,
+          frequency,
+          payment_method: paymentMethod,
+          purpose,
+          guest_email: isLoggedIn ? undefined : guestEmail.trim() || undefined,
+          guest_name: isLoggedIn ? undefined : guestName.trim() || undefined,
         });
         setResult({
-          type: 'postal',
-          donationId: donation.id,
+          type: 'subscription',
+          subscriptionId: sub.id,
           amount: amount as number,
-          postalAccount: postalDraft.postal_account,
-          draftNumber: postalDraft.draft_number,
+          frequency,
         });
       } else {
-        // Cash
-        setResult({
-          type: 'cash',
-          donationId: donation.id,
+        // ── One-time donation (existing flow) ──
+        const donation = await api.createDonation({
           amount: amount as number,
+          purpose,
+          payment_method: paymentMethod,
+          guest_email: isLoggedIn ? undefined : guestEmail.trim() || undefined,
+          guest_name: isLoggedIn ? undefined : guestName.trim() || undefined,
         });
+
+        if (paymentMethod === 'credit_card') {
+          const paymentIntent = await api.createCreditCardPayment({
+            donation_id: donation.id,
+            amount: amount as number,
+          } as import('@/types').CreditCardPayment);
+          setResult({
+            type: 'once',
+            donationId: donation.id,
+            amount: amount as number,
+            clientSecret: paymentIntent.client_secret,
+          });
+        } else if (paymentMethod === 'postal') {
+          const postalDraft = await api.createPostalDraft({
+            donation_id: donation.id,
+            amount: amount as number,
+          });
+          setResult({
+            type: 'once',
+            donationId: donation.id,
+            amount: amount as number,
+            postalAccount: postalDraft.postal_account,
+            draftNumber: postalDraft.draft_number,
+          });
+        } else {
+          setResult({
+            type: 'once',
+            donationId: donation.id,
+            amount: amount as number,
+          });
+        }
       }
     } catch (err: unknown) {
       if (err instanceof ApiError) {
@@ -219,7 +264,7 @@ export default function DonatePage() {
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('送出捐款失敗，請稍後再試');
+        setError(isSubscription ? '設定定期定額失敗，請稍後再試' : '送出捐款失敗，請稍後再試');
       }
     } finally {
       setLoading(false);
@@ -229,12 +274,16 @@ export default function DonatePage() {
   // --- Render Step Content ---
   const renderStep = () => {
     switch (step) {
-      // Step 1: Amount
+      // Step 1: Amount (and frequency for subscription mode)
       case 0:
         return (
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">選擇捐款金額</h2>
-            <p className="text-gray-500 text-sm mb-6">選擇您想要捐贈的金額</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              {isSubscription ? '選擇捐款金額與頻率' : '選擇捐款金額'}
+            </h2>
+            <p className="text-gray-500 text-sm mb-6">
+              {isSubscription ? '設定您每期想要捐贈的金額與頻率' : '選擇您想要捐贈的金額'}
+            </p>
 
             {/* Quick amount buttons */}
             <div className="grid grid-cols-5 gap-3 mb-4">
@@ -269,10 +318,38 @@ export default function DonatePage() {
               </div>
             </div>
 
+            {/* Frequency (subscription mode only) */}
+            {isSubscription && (
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <Repeat className="w-4 h-4 inline mr-1" />
+                  捐款頻率
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {FREQUENCIES.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => setFrequency(f.value)}
+                      className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        frequency === f.value
+                          ? 'border-rose-500 bg-rose-50 text-rose-700 shadow-sm'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-rose-200 hover:bg-rose-50'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Selected display */}
             {amount !== '' && (amount as number) > 0 && (
               <div className="mt-6 p-4 bg-rose-50 border border-rose-200 rounded-xl text-center">
-                <span className="text-sm text-rose-600">捐款金額</span>
+                <span className="text-sm text-rose-600">
+                  {isSubscription ? `每${frequency === 'monthly' ? '月' : frequency === 'quarterly' ? '季' : '年'}捐款金額` : '捐款金額'}
+                </span>
                 <p className="text-2xl font-bold text-rose-700 mt-1">${(amount as number).toLocaleString()}</p>
               </div>
             )}
@@ -350,6 +427,16 @@ export default function DonatePage() {
                 </button>
               ))}
             </div>
+
+            {/* Subscription note */}
+            {isSubscription && paymentMethod === 'credit_card' && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-yellow-700">
+                  信用卡定期定額功能尚在設定中，建議先選擇郵政劃撥或現金方式。
+                </p>
+              </div>
+            )}
           </div>
         );
 
@@ -395,6 +482,12 @@ export default function DonatePage() {
                 <span className="text-gray-500">金額</span>
                 <span className="font-semibold text-gray-900">${(amount as number).toLocaleString()}</span>
               </div>
+              {isSubscription && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">頻率</span>
+                  <span className="font-semibold text-gray-900">{getFrequencyLabel(frequency)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">用途</span>
                 <span className="font-semibold text-gray-900">{getPurposeLabel(purpose as string)}</span>
@@ -413,130 +506,189 @@ export default function DonatePage() {
   const renderResult = () => {
     if (!result) return null;
 
-    switch (result.type) {
-      case 'credit_card':
-        return (
-          <div className="max-w-md mx-auto">
-            {!paymentDone ? (
-              <>
-                <div className="text-center mb-8">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-rose-100 rounded-2xl mb-4">
-                    <CreditCard className="w-8 h-8 text-rose-600" />
-                  </div>
-                  <h2 className="text-xl font-bold text-gray-900">信用卡付款</h2>
-                  <p className="text-gray-500 mt-1">請輸入信用卡資訊完成捐款</p>
-                </div>
-
-                <Card className="p-6 mb-6">
-                  {result.clientSecret ? (
-                    <StripePaymentWrapper clientSecret={result.clientSecret}>
-                      <StripeCardForm
-                        clientSecret={result.clientSecret}
-                        amount={result.amount}
-                        donationId={result.donationId}
-                        onSuccess={() => setPaymentDone(true)}
-                        onBack={() => setResult(null)}
-                      />
-                    </StripePaymentWrapper>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Loader2 className="w-8 h-8 animate-spin text-rose-500 mx-auto mb-3" />
-                      <p className="text-sm text-gray-500">正在初始化付款...</p>
-                    </div>
-                  )}
-                </Card>
-              </>
-            ) : (
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-2xl mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-green-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">捐款成功</h2>
-                <p className="text-gray-500 mb-6">感謝您的捐款！您的愛心將被妥善運用。</p>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => router.push('/')}
-                    className="w-full bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all"
-                  >
-                    返回首頁
-                  </button>
-                  <button
-                    onClick={() => router.push('/donate')}
-                    className="w-full border border-gray-200 text-gray-600 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all"
-                  >
-                    再次捐款
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'postal':
-        return (
-          <div className="max-w-md mx-auto">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-rose-100 rounded-2xl mb-4">
-                <Landmark className="w-8 h-8 text-rose-600" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900">郵政劃撥捐款</h2>
-              <p className="text-gray-500 mt-1">請前往郵局劃撥繳款</p>
+    // Subscription success
+    if (result.type === 'subscription') {
+      return (
+        <div className="max-w-md mx-auto">
+          <div className="text-center py-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-2xl mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">定期定額設定成功</h2>
+            <p className="text-gray-500 mb-6">感謝您的定期支持！您的愛心將持續幫助需要的人。</p>
 
-            <Card className="p-6 mb-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-rose-50 rounded-lg border border-rose-200">
-                  <span className="text-sm text-gray-600">劃撥帳號</span>
-                  <span className="text-lg font-bold text-rose-700 tracking-wider">{result.postalAccount || '12345678'}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <span className="text-sm text-gray-600">捐款金額</span>
-                  <span className="text-lg font-bold text-gray-900">${result.amount.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <span className="text-sm text-gray-600">劃撥單編號</span>
-                  <span className="text-sm font-mono text-gray-700">{result.draftNumber}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <span className="text-sm text-gray-600">捐款編號</span>
-                  <span className="text-sm font-mono text-gray-700">{result.donationId.substring(0, 8)}...</span>
-                </div>
+            <Card className="p-4 text-left space-y-3 mb-6">
+              <div className="flex justify-between">
+                <span className="text-gray-500">每期金額</span>
+                <span className="font-bold text-emerald-600">${result.amount.toLocaleString()}</span>
               </div>
-
-              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                <div className="flex items-start gap-2 text-sm text-yellow-700">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium mb-1">請注意：</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>請於劃撥單備註欄填寫捐款編號</li>
-                      <li>劃撥後約 3-5 個工作天入帳</li>
-                      <li>如需下載劃撥單，請點擊下方按鈕</li>
-                    </ul>
-                  </div>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">捐款頻率</span>
+                <span className="font-medium">{getFrequencyLabel(result.frequency || 'monthly')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">訂閱編號</span>
+                <span className="font-mono text-xs text-gray-500">{result.subscriptionId?.substring(0, 8)}...</span>
               </div>
             </Card>
 
             <div className="space-y-3">
-              <a
-                href={result.draftNumber ? `/api/payments/postal/${result.draftNumber}/download` : '#'}
-                className="w-full flex items-center justify-center gap-2 bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all"
-              >
-                <Download className="w-4 h-4" />
-                下載劃撥單
-              </a>
               <button
                 onClick={() => router.push('/')}
-                className="w-full border border-gray-200 text-gray-600 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all"
+                className="w-full bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all"
               >
                 返回首頁
               </button>
+              <button
+                onClick={() => {
+                  setResult(null);
+                  setStep(0);
+                  setAmount('');
+                  setCustomAmount('');
+                  setPurpose('');
+                  setPaymentMethod('');
+                  setGuestName('');
+                  setGuestEmail('');
+                  setPaymentDone(false);
+                }}
+                className="w-full border border-gray-200 text-gray-600 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all"
+              >
+                再設定一筆
+              </button>
             </div>
           </div>
-        );
+        </div>
+      );
+    }
 
-      case 'cash':
+    // One-time donation result (existing flow)
+    switch (result.type) {
+      case 'once':
+        if (paymentMethod === 'credit_card') {
+          return (
+            <div className="max-w-md mx-auto">
+              {!paymentDone ? (
+                <>
+                  <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-rose-100 rounded-2xl mb-4">
+                      <CreditCard className="w-8 h-8 text-rose-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900">信用卡付款</h2>
+                    <p className="text-gray-500 mt-1">請輸入信用卡資訊完成捐款</p>
+                  </div>
+
+                  <Card className="p-6 mb-6">
+                    {result.clientSecret ? (
+                      <StripePaymentWrapper clientSecret={result.clientSecret}>
+                        <StripeCardForm
+                          clientSecret={result.clientSecret}
+                          amount={result.amount}
+                          donationId={result.donationId || ''}
+                          onSuccess={() => setPaymentDone(true)}
+                          onBack={() => setResult(null)}
+                        />
+                      </StripePaymentWrapper>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Loader2 className="w-8 h-8 animate-spin text-rose-500 mx-auto mb-3" />
+                        <p className="text-sm text-gray-500">正在初始化付款...</p>
+                      </div>
+                    )}
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-2xl mb-4">
+                    <CheckCircle2 className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">捐款成功</h2>
+                  <p className="text-gray-500 mb-6">感謝您的捐款！您的愛心將被妥善運用。</p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => router.push('/')}
+                      className="w-full bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all"
+                    >
+                      返回首頁
+                    </button>
+                    <button
+                      onClick={() => router.push('/donate')}
+                      className="w-full border border-gray-200 text-gray-600 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all"
+                    >
+                      再次捐款
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (paymentMethod === 'postal') {
+          return (
+            <div className="max-w-md mx-auto">
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-rose-100 rounded-2xl mb-4">
+                  <Landmark className="w-8 h-8 text-rose-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">郵政劃撥捐款</h2>
+                <p className="text-gray-500 mt-1">請前往郵局劃撥繳款</p>
+              </div>
+
+              <Card className="p-6 mb-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-rose-50 rounded-lg border border-rose-200">
+                    <span className="text-sm text-gray-600">劃撥帳號</span>
+                    <span className="text-lg font-bold text-rose-700 tracking-wider">{result.postalAccount || '12345678'}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm text-gray-600">捐款金額</span>
+                    <span className="text-lg font-bold text-gray-900">${result.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm text-gray-600">劃撥單編號</span>
+                    <span className="text-sm font-mono text-gray-700">{result.draftNumber}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm text-gray-600">捐款編號</span>
+                    <span className="text-sm font-mono text-gray-700">{result.donationId?.substring(0, 8)}...</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                  <div className="flex items-start gap-2 text-sm text-yellow-700">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium mb-1">請注意：</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>請於劃撥單備註欄填寫捐款編號</li>
+                        <li>劃撥後約 3-5 個工作天入帳</li>
+                        <li>如需下載劃撥單，請點擊下方按鈕</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="space-y-3">
+                <a
+                  href={result.draftNumber ? `/api/payments/postal/${result.draftNumber}/download` : '#'}
+                  className="w-full flex items-center justify-center gap-2 bg-rose-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  下載劃撥單
+                </a>
+                <button
+                  onClick={() => router.push('/')}
+                  className="w-full border border-gray-200 text-gray-600 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all"
+                >
+                  返回首頁
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // Cash
         return (
           <div className="max-w-md mx-auto">
             <div className="text-center mb-8">
@@ -555,7 +707,7 @@ export default function DonatePage() {
                 </div>
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <span className="text-sm text-gray-600">捐款編號</span>
-                  <span className="text-sm font-mono text-gray-700">{result.donationId.substring(0, 8)}...</span>
+                  <span className="text-sm font-mono text-gray-700">{result.donationId?.substring(0, 8)}...</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <span className="text-sm text-gray-600">狀態</span>
@@ -610,8 +762,34 @@ export default function DonatePage() {
         <div className="bg-white rounded-2xl shadow-lg shadow-gray-200/50 p-6 sm:p-8">
           {!result ? (
             <>
+              {/* Mode Toggle */}
+              <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+                <button
+                  onClick={() => switchMode('once')}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                    mode === 'once'
+                      ? 'bg-white text-rose-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Heart className="w-4 h-4 inline mr-1.5" />
+                  單次捐款
+                </button>
+                <button
+                  onClick={() => switchMode('monthly')}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                    mode === 'monthly'
+                      ? 'bg-white text-rose-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Repeat className="w-4 h-4 inline mr-1.5" />
+                  每月捐款
+                </button>
+              </div>
+
               {/* Steps */}
-              {!result && <StepIndicator current={step} total={totalSteps} labels={stepLabels} />}
+              <StepIndicator current={step} total={totalSteps} labels={stepLabels} />
 
               {/* Step content */}
               {renderStep()}
@@ -657,6 +835,11 @@ export default function DonatePage() {
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         送出中...
+                      </>
+                    ) : isSubscription ? (
+                      <>
+                        <Repeat className="w-4 h-4" />
+                        設定定期捐款
                       </>
                     ) : (
                       <>

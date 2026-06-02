@@ -99,8 +99,8 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
 # ── Dependency: require admin OR donation_maintainer ────────────
 
 async def require_admin_or_maintainer(current_user: User = Depends(get_current_user)) -> User:
-    """Require the current user to have ``admin`` or ``donation_maintainer`` role."""
-    if current_user.role not in ("admin", "donation_maintainer"):
+    """Require the current user to have ``admin``, ``donation_maintainer``, or ``data_maintainer`` role."""
+    if current_user.role not in ("admin", "donation_maintainer", "data_maintainer"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin or donation-maintainer privileges required",
@@ -116,6 +116,18 @@ async def require_donation_maintainer(current_user: User = Depends(get_current_u
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Donation-maintainer privileges required",
+        )
+    return current_user
+
+
+# ── Dependency: require data_maintainer or admin ────────────────
+
+async def require_data_maintainer(current_user: User = Depends(get_current_user)) -> User:
+    """Require the current user to have ``admin`` or ``data_maintainer`` role."""
+    if current_user.role not in ("admin", "data_maintainer"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Data-maintainer or admin privileges required",
         )
     return current_user
 

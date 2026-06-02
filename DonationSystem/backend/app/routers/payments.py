@@ -22,6 +22,7 @@ from app.core.deps import (
     get_donation_repo,
     get_payment_repo,
     get_postal_draft_repo,
+    get_optional_user,
     require_admin,
 )
 from app.models.user import User
@@ -64,7 +65,7 @@ POSTAL_ACCOUNT = "1234567890123456789"  # TODO: move to settings / env
 @router.post("/credit-card", response_model=CreditCardPaymentResponse)
 async def credit_card_payment(
     req: CreditCardPaymentRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_optional_user),
     donation_repo: DonationRepository = Depends(get_donation_repo),
     payment_repo: PaymentRepository = Depends(get_payment_repo),
     session: AsyncSession = Depends(get_db_session),
@@ -86,7 +87,7 @@ async def credit_card_payment(
     donation = await donation_repo.get(req.donation_id)
     if donation is None:
         raise HTTPException(status_code=404, detail="Donation not found")
-    if donation.user_id is not None and donation.user_id != current_user.id:
+    if donation.user_id is not None and (current_user is None or donation.user_id != current_user.id):
         raise HTTPException(status_code=403, detail="Access denied")
     if donation.status != "pending":
         raise HTTPException(
@@ -141,7 +142,7 @@ async def credit_card_payment(
 @router.post("/postal", status_code=201, response_model=PostalPaymentResponse)
 async def postal_payment(
     req: PostalPaymentRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_optional_user),
     donation_repo: DonationRepository = Depends(get_donation_repo),
     payment_repo: PaymentRepository = Depends(get_payment_repo),
     draft_repo: PostalDraftRepository = Depends(get_postal_draft_repo),
