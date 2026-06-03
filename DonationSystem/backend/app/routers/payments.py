@@ -23,12 +23,14 @@ from app.core.deps import (
     get_payment_repo,
     get_postal_draft_repo,
     get_optional_user,
+    get_system_setting_repo,
     require_admin,
 )
 from app.models.user import User
 from app.repositories.donation import DonationRepository
 from app.repositories.payment import PaymentRepository
 from app.repositories.postal_draft import PostalDraftRepository
+from app.repositories.system_setting import SystemSettingRepository
 from app.schemas.payment import (
     CashConfirmResponse,
     CashPaymentRequest,
@@ -54,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/payments", tags=["Payments"])
 
-POSTAL_ACCOUNT = "1234567890123456789"  # TODO: move to settings / env
+# POSTAL_ACCOUNT now reads from system_settings table (key: postal_account_number)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -146,6 +148,7 @@ async def postal_payment(
     donation_repo: DonationRepository = Depends(get_donation_repo),
     payment_repo: PaymentRepository = Depends(get_payment_repo),
     draft_repo: PostalDraftRepository = Depends(get_postal_draft_repo),
+    settings_repo: SystemSettingRepository = Depends(get_system_setting_repo),
     session: AsyncSession = Depends(get_db_session),
 ):
     """建立郵政劃撥單。
@@ -167,6 +170,11 @@ async def postal_payment(
             detail=f"Cannot process postal for donation with status '{donation.status}'",
         )
 
+    # 從系統設定讀取郵政劃撥帳號
+    postal_account = await settings_repo.get_value("postal_account_number")
+    if not postal_account:
+        postal_account = "1234567890123456789"  # 預設值
+
     # 產生劃撥單號
     draft_number = generate_draft_number(donation.id)
 
@@ -184,7 +192,7 @@ async def postal_payment(
     draft = await draft_repo.create(
         donation_id=donation.id,
         draft_number=draft_number,
-        postal_account=POSTAL_ACCOUNT,
+        postal_account=postal_account,
         amount=req.amount,
         status="generated",
     )
@@ -206,6 +214,7 @@ async def postal_payment(
 async def download_postal_draft(
     draft_id: UUID,
     draft_repo: PostalDraftRepository = Depends(get_postal_draft_repo),
+    settings_repo: SystemSettingRepository = Depends(get_system_setting_repo),
     session: AsyncSession = Depends(get_db_session),
 ):
     """下載郵政劃撥單 PDF。
@@ -215,6 +224,11 @@ async def download_postal_draft(
     draft = await draft_repo.get(draft_id)
     if draft is None:
         raise HTTPException(status_code=404, detail="Postal draft not found")
+
+    # 從系統設定讀取機構名稱
+    org_name = await settings_repo.get_value("org_name")
+    if not org_name:
+        org_name = "捐款系統"
 
     # Resolve donor name from linked donation
     donation = draft.donation
@@ -231,7 +245,7 @@ async def download_postal_draft(
         amount=draft.amount,
         amount_in_words=_amount_in_words(draft.amount),
         postal_account=draft.postal_account,
-        org_name="捐款系統",
+        org_name=org_name,
     )
 
     return Response(

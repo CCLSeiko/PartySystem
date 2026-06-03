@@ -14,6 +14,8 @@ class AdminSettingsRequest(BaseModel):
     donation_purposes: list[str] | None = None
     subscription_retry_limit: int | None = Field(None, ge=1)
     auto_pause_after_failures: int | None = Field(None, ge=1)
+    postal_account_number: str | None = Field(None, min_length=1, max_length=50, description="郵政劃撥帳號")
+    org_name: str | None = Field(None, min_length=1, max_length=200, description="機構名稱")
 
 
 class AdminSettingsResponse(BaseModel):

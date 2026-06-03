@@ -18,6 +18,11 @@ class SystemSettingRepository(BaseRepository[SystemSetting]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_value(self, key: str) -> str | None:
+        """Fetch a setting value by its key. Returns None if not found."""
+        setting = await self.get_by_key(key)
+        return setting.value if setting else None
+
     async def upsert(self, key: str, value: str) -> SystemSetting:
         """Insert or update a setting by key."""
         existing = await self.get_by_key(key)

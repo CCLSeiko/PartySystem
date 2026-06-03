@@ -13,6 +13,7 @@ from app.core.security import UserRole, decode_access_token
 from app.database import get_db_session
 from app.models.user import User
 from app.repositories import (
+    AuditLogRepository,
     DonationRepository,
     DonorAccountRepository,
     PaymentRepository,
@@ -187,3 +188,7 @@ def get_donor_account_repo(session: AsyncSession = Depends(get_db_session)) -> D
 
 def get_system_setting_repo(session: AsyncSession = Depends(get_db_session)) -> SystemSettingRepository:
     return SystemSettingRepository(session)
+
+
+def get_audit_log_repo(session: AsyncSession = Depends(get_db_session)) -> AuditLogRepository:
+    return AuditLogRepository(session)

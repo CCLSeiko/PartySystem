@@ -8,7 +8,7 @@ import { formatDate, formatCurrency } from '@/lib/utils';
 import {
   ArrowLeft, Save, Trash2, AlertCircle, CheckCircle2, Loader2,
   User, Mail, Lock, Phone, MapPin, Fingerprint, Calendar, ShieldCheck,
-  Plus, CreditCard, Landmark, Building2, Home, Smartphone, FileText,
+  Plus, CreditCard, Landmark, Building2, Home, Smartphone, FileText, RefreshCw,
 } from 'lucide-react';
 
 interface Account {
@@ -19,6 +19,24 @@ interface Account {
   auth_start_date?: string;
   auth_end_date?: string;
   is_active: boolean;
+}
+
+interface Subscription {
+  id: string;
+  amount: number;
+  currency: string;
+  frequency: string;
+  payment_method: string;
+  purpose?: string;
+  status: string;
+  start_date?: string;
+  end_date?: string;
+  next_billing_date?: string;
+  last_billing_date?: string;
+  total_cycles: number;
+  cycles_completed: number;
+  consecutive_failures: number;
+  created_at?: string;
 }
 
 export default function EditDonorPage() {
@@ -46,6 +64,7 @@ export default function EditDonorPage() {
   const [isActive, setIsActive] = useState(true);
 
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [resetPwConfirm, setResetPwConfirm] = useState(false);
   const [resetPwReason, setResetPwReason] = useState('');
@@ -55,6 +74,7 @@ export default function EditDonorPage() {
     if (donorId && donorId !== 'placeholder') {
       loadDonor();
       loadAccounts();
+      loadSubscriptions();
     } else {
       setLoading(false);
     }
@@ -85,6 +105,14 @@ export default function EditDonorPage() {
     try {
       const data = await api.maintenanceGetDonorAccounts(donorId);
       setAccounts(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ }
+  }
+
+  async function loadSubscriptions() {
+    try {
+      const result = await api.maintenanceGetSubscriptions({ user_id: donorId });
+      const data = result?.data || result;
+      setSubscriptions(Array.isArray(data) ? data : []);
     } catch { /* ignore */ }
   }
 
@@ -298,6 +326,87 @@ export default function EditDonorPage() {
                 <span className={`text-xs px-2 py-0.5 rounded-full ${acct.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                   {acct.is_active ? '啟用' : '停用'}
                 </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Recurring Donations (Subscriptions) */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            <RefreshCw className="w-5 h-5 inline mr-2 text-blue-500" />
+            定期定額捐款
+          </h2>
+        </div>
+        {subscriptions.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">尚無定期定額捐款設定</p>
+        ) : (
+          <div className="space-y-3">
+            {subscriptions.map(sub => (
+              <div key={sub.id} className="p-4 bg-gray-50 rounded-lg border">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      sub.status === 'active' ? 'bg-green-100 text-green-700' :
+                      sub.status === 'paused' ? 'bg-yellow-100 text-yellow-700' :
+                      sub.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {sub.status === 'active' ? '啟用中' :
+                       sub.status === 'paused' ? '暫停' :
+                       sub.status === 'cancelled' ? '已取消' :
+                       sub.status === 'expired' ? '已過期' : sub.status}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {sub.frequency === 'monthly' ? '每月' :
+                       sub.frequency === 'quarterly' ? '每季' :
+                       sub.frequency === 'yearly' ? '每年' : sub.frequency}
+                    </span>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900">
+                    ${formatCurrency(sub.amount, sub.currency || 'TWD')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-gray-600">
+                  <div>
+                    <span className="text-gray-400">付款方式</span>
+                    <p className="font-medium">{sub.payment_method === 'credit_card' ? '信用卡' :
+                      sub.payment_method === 'postal' ? '郵政劃撥' :
+                      sub.payment_method === 'cash' ? '現金' : sub.payment_method}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">用途</span>
+                    <p className="font-medium">{sub.purpose || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">開始日期</span>
+                    <p className="font-medium">{sub.start_date || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">下次扣款</span>
+                    <p className="font-medium">{sub.next_billing_date || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">已完成期數</span>
+                    <p className="font-medium">{sub.cycles_completed}{sub.total_cycles > 0 ? ` / ${sub.total_cycles}` : ' / ∞'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">連續失敗</span>
+                    <p className={`font-medium ${sub.consecutive_failures > 0 ? 'text-red-600' : ''}`}>
+                      {sub.consecutive_failures} 次
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">最後扣款</span>
+                    <p className="font-medium">{sub.last_billing_date || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">結束日期</span>
+                    <p className="font-medium">{sub.end_date || '—'}</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

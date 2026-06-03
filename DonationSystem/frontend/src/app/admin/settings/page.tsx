@@ -19,6 +19,8 @@ export default function AdminSettingsPage() {
   const [purposes, setPurposes] = useState<string[]>([]);
   const [retryLimit, setRetryLimit] = useState(0);
   const [autoPause, setAutoPause] = useState(0);
+  const [postalAccount, setPostalAccount] = useState('');
+  const [orgName, setOrgName] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -33,6 +35,8 @@ export default function AdminSettingsPage() {
       setPurposes(data.donation_purposes);
       setRetryLimit(data.subscription_retry_limit);
       setAutoPause(data.auto_pause_after_failures);
+      setPostalAccount(data.postal_account_number || '');
+      setOrgName(data.org_name || '');
     } catch (err: any) {
       setError(err.message || '無法載入設定');
     } finally {
@@ -50,6 +54,8 @@ export default function AdminSettingsPage() {
         donation_purposes: purposes,
         subscription_retry_limit: retryLimit,
         auto_pause_after_failures: autoPause,
+        postal_account_number: postalAccount,
+        org_name: orgName,
       };
       await api.adminUpdateSettings(input);
       setSuccess('設定已成功更新');
@@ -157,6 +163,38 @@ export default function AdminSettingsPage() {
                 <Plus className="w-4 h-4" />
                 新增
               </button>
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+
+          {/* Organization Settings */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                機構名稱
+              </label>
+              <p className="text-xs text-gray-400 mb-2">顯示於捐款收據與劃撥單</p>
+              <input
+                type="text"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="請輸入機構名稱"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                郵政劃撥帳號
+              </label>
+              <p className="text-xs text-gray-400 mb-2">用於郵政劃撥捐款的收款帳號</p>
+              <input
+                type="text"
+                value={postalAccount}
+                onChange={(e) => setPostalAccount(e.target.value)}
+                placeholder="請輸入郵政劃撥帳號"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+              />
             </div>
           </div>
 

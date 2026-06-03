@@ -30,8 +30,8 @@ class DonorAccount(Base):
 
     # ── Common fields ─────────────────────────────────────────
     account_type = Column(String(20), nullable=False)        # credit_card / postal / bank_transfer
-    auth_start_date = Column(String(8), nullable=True)       # YYYYMMDD
-    auth_end_date = Column(String(8), nullable=True)         # YYYYMMDD
+    auth_start_date = Column(String(10), nullable=True)      # YYYY-MM-DD
+    auth_end_date = Column(String(10), nullable=True)        # YYYY-MM-DD
     authorized_person = Column(String(100), nullable=False)
     donation_amount = Column(Numeric(12, 2), nullable=False)
 

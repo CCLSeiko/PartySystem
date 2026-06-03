@@ -213,6 +213,8 @@ export interface SystemSettings {
   donation_purposes: string[];
   subscription_retry_limit: number;
   auto_pause_after_failures: number;
+  postal_account_number: string;
+  org_name: string;
 }
 
 // --- Common ---

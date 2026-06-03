@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.core.limiter import limiter
-from app.routers import users, donations, payments, subscriptions, admin, maintenance
+from app.routers import users, donations, payments, subscriptions, admin, maintenance, audit
 
 app = FastAPI(
     title=settings.app_name,
@@ -24,6 +24,7 @@ app.include_router(payments.router)
 app.include_router(subscriptions.router)
 app.include_router(admin.router)
 app.include_router(maintenance.router)
+app.include_router(audit.router)
 
 
 @app.get("/api/health")

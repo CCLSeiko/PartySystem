@@ -522,6 +522,8 @@ _DEFAULT_SETTINGS: dict[str, object] = {
     "donation_purposes": ["general", "emergency_relief", "education", "medical", "other"],
     "subscription_retry_limit": 3,
     "auto_pause_after_failures": 3,
+    "postal_account_number": "1234567890123456789",  # 預設郵政劃撥帳號
+    "org_name": "捐款系統",  # 預設機構名稱
 }
 
 
@@ -550,6 +552,9 @@ async def get_settings(
                 result[key] = int(raw_value)
             except (ValueError, TypeError):
                 pass
+        # String fields: postal_account_number, org_name — use as-is
+        elif key in ("postal_account_number", "org_name"):
+            result[key] = raw_value
 
     return result
 
@@ -579,6 +584,12 @@ async def update_settings(
     if req.auto_pause_after_failures is not None:
         await settings_repo.upsert("auto_pause_after_failures", str(req.auto_pause_after_failures))
         updated.append("auto_pause_after_failures")
+    if req.postal_account_number is not None:
+        await settings_repo.upsert("postal_account_number", req.postal_account_number)
+        updated.append("postal_account_number")
+    if req.org_name is not None:
+        await settings_repo.upsert("org_name", req.org_name)
+        updated.append("org_name")
 
     await session.commit()
     return AdminSettingsResponse(updated_fields=updated)

@@ -14,6 +14,13 @@ echo "✅ PostgreSQL is ready"
 # Wait a bit more for PostgreSQL to fully accept connections
 sleep 2
 
+# Fix permissions for files copied via docker cp (run as root)
+if [ "$(id -u)" = "0" ]; then
+  echo "🔧 Fixing file permissions..."
+  find /app -type f -name "*.py" -exec chmod 644 {} \; 2>/dev/null || true
+  chown -R donation:donation /app 2>/dev/null || true
+fi
+
 # Run Alembic migrations
 echo "🔄 Running database migrations..."
 alembic upgrade head

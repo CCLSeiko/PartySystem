@@ -9,6 +9,7 @@ from app.repositories.reconciliation import ReconciliationRepository
 from app.repositories.tax_report import TaxReportRepository
 from app.repositories.donor_account import DonorAccountRepository
 from app.repositories.system_setting import SystemSettingRepository
+from app.repositories.audit_log import AuditLogRepository
 
 __all__ = [
     "UserRepository",
@@ -20,4 +21,5 @@ __all__ = [
     "TaxReportRepository",
     "DonorAccountRepository",
     "SystemSettingRepository",
+    "AuditLogRepository",
 ]

@@ -305,6 +305,8 @@ export const api = {
     donation_purposes: string[];
     subscription_retry_limit: number;
     auto_pause_after_failures: number;
+    postal_account_number: string;
+    org_name: string;
   }> {
     return request('GET', '/admin/settings', undefined, getToken());
   },
@@ -314,6 +316,8 @@ export const api = {
     donation_purposes: string[];
     subscription_retry_limit: number;
     auto_pause_after_failures: number;
+    postal_account_number: string;
+    org_name: string;
   }>): Promise<any> {
     return request('PUT', '/admin/settings', input, getToken());
   },
@@ -431,7 +435,7 @@ export const api = {
 
   // ── Maintenance: Donor Accounts ──
   async maintenanceGetDonorAccounts(donorId: string): Promise<any[]> {
-    return request('GET', `/maintenance/donors/${donorId}/accounts`, undefined, getToken());
+    return request('GET', `/maintenance/donor-accounts?user_id=${donorId}`, undefined, getToken());
   },
 
   async maintenanceCreateDonorAccount(donorId: string, input: {
@@ -448,11 +452,14 @@ export const api = {
     postal_account?: string;
     bank_account?: string;
   }): Promise<any> {
-    return request('POST', `/maintenance/donors/${donorId}/accounts`, input, getToken());
+    // Backend expects user_id in body, not in URL
+    const body = { ...input, user_id: donorId };
+    return request('POST', '/maintenance/donor-accounts', body, getToken());
   },
 
   // ── Maintenance: Subscriptions ──
   async maintenanceGetSubscriptions(params?: {
+    user_id?: string;
     status?: string;
     payment_method?: string;
     frequency?: string;

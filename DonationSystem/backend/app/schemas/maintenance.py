@@ -69,8 +69,8 @@ class DonorAccountCreateRequest(BaseModel):
     guest_name: str | None = Field(None, max_length=100)
     guest_email: str | None = None
     account_type: str = Field(..., pattern=r"^(credit_card|postal|bank_transfer)$")
-    auth_start_date: str | None = Field(None, pattern=r"^\d{8}$")
-    auth_end_date: str | None = Field(None, pattern=r"^\d{8}$")
+    auth_start_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    auth_end_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     authorized_person: str = Field(..., max_length=100)
     donation_amount: Decimal = Field(..., gt=0, decimal_places=2)
     card_issuing_bank: str | None = Field(None, max_length=100)
@@ -87,8 +87,8 @@ class DonorAccountUpdateRequest(BaseModel):
     guest_name: str | None = Field(None, max_length=100)
     guest_email: str | None = None
     account_type: str | None = Field(None, pattern=r"^(credit_card|postal|bank_transfer)$")
-    auth_start_date: str | None = Field(None, pattern=r"^\d{8}$")
-    auth_end_date: str | None = Field(None, pattern=r"^\d{8}$")
+    auth_start_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    auth_end_date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     authorized_person: str | None = Field(None, max_length=100)
     donation_amount: Decimal | None = Field(None, gt=0, decimal_places=2)
     card_issuing_bank: str | None = Field(None, max_length=100)
