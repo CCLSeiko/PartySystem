@@ -165,6 +165,7 @@ export const api = {
     frequency: string;
     payment_method: string;
     purpose?: string;
+    total_cycles?: number;
     guest_email?: string;
     guest_name?: string;
   }): Promise<{ id: string }> {

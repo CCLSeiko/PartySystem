@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
+import Link from 'next/link';
 import {
   DataTable,
   Pagination,
@@ -18,6 +19,7 @@ import {
   Edit3,
   Trash2,
   AlertCircle,
+  Plus,
 } from 'lucide-react';
 import type { Subscription, PaginatedResponse, SubscriptionFrequency } from '@/types';
 
@@ -209,12 +211,21 @@ export default function MemberSubscriptionsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Repeat className="w-6 h-6 text-rose-500" />
-          定期定額管理
-        </h1>
-        <p className="text-gray-500 mt-1">管理您的定期定額捐款設定</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Repeat className="w-6 h-6 text-rose-500" />
+            定期定額管理
+          </h1>
+          <p className="text-gray-500 mt-1">管理您的定期定額捐款設定</p>
+        </div>
+        <Link
+          href="/member/subscriptions/new"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-medium hover:bg-rose-600 transition-colors shadow-sm"
+        >
+          <Plus className="w-4 h-4" />
+          新增定期定額
+        </Link>
       </div>
 
       {/* Filter */}
