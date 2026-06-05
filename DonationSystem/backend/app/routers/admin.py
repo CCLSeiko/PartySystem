@@ -14,6 +14,7 @@ import io
 import json
 import logging
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, UploadFile, status
@@ -407,6 +408,20 @@ async def get_reconciliation_detail(
     if record is None:
         raise HTTPException(status_code=404, detail="Reconciliation record not found")
 
+    # Parse stored details
+    details = record.details or {}
+    unmatched_items_raw = details.get("unmatched", [])
+    unmatched_items = [
+        UnmatchedItem(
+            row=item.get("row", 0),
+            draft_number=item.get("draft_number", ""),
+            expected_amount=Decimal(item.get("expected_amount", "0")),
+            actual_amount=Decimal(item.get("actual_amount", "0")),
+            reason=item.get("reason", ""),
+        )
+        for item in unmatched_items_raw
+    ]
+
     return ReconciliationDetailResponse(
         id=record.id,
         file_name=record.file_name,
@@ -414,7 +429,7 @@ async def get_reconciliation_detail(
         matched_count=record.matched_count,
         unmatched_count=record.unmatched_count,
         status=record.status,
-        unmatched_items=[],
+        unmatched_items=unmatched_items,
         created_at=record.created_at,
     )
 
@@ -433,20 +448,37 @@ async def download_reconciliation_report(
     if record is None:
         raise HTTPException(status_code=404, detail="Reconciliation record not found")
 
-    # Generate CSV from unmatched details (currently empty — the detail
-    # parsing happens during upload and should be stored separately)
+    # Generate CSV from stored details
+    details = record.details or {}
+    unmatched_items = details.get("unmatched", [])
+
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Row", "Draft Number", "Expected Amount", "Actual Amount", "Reason"])
-    writer.writerow(["", record.file_name, "", "", ""])
+    writer.writerow(["對帳檔案", record.file_name])
+    writer.writerow(["上傳時間", record.created_at.strftime("%Y-%m-%d %H:%M:%S")])
+    writer.writerow(["總筆數", record.total_records])
+    writer.writerow(["相符筆數", record.matched_count])
+    writer.writerow(["不符筆數", record.unmatched_count])
+    writer.writerow([])
+    writer.writerow(["行號", "劃撥單號", "預期金額", "實際金額", "原因", "狀態"])
 
-    csv_content = output.getvalue()
+    for item in unmatched_items:
+        writer.writerow([
+            item.get("row", ""),
+            item.get("draft_number", ""),
+            item.get("expected_amount", "0"),
+            item.get("actual_amount", "0"),
+            item.get("reason", ""),
+            item.get("status", "unmatched"),
+        ])
+
+    csv_content = "\ufeff" + output.getvalue()  # Add BOM for Excel
 
     return Response(
         content=csv_content,
-        media_type="text/csv",
+        media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="reconciliation_diff_{record.id}.csv"',
+            "Content-Disposition": f'attachment; filename="reconciliation_report_{record.id}.csv"',
         },
     )
 

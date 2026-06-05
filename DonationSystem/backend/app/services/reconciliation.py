@@ -46,7 +46,7 @@ async def process_reconciliation_file(
     2. Parse CSV content.
     3. For each row, look up the matching ``PostalDraft`` by ``draft_number``.
     4. Compare amounts — mark as matched or unmatched.
-    5. Save the ``ReconciliationRecord`` to the database.
+    5. Save the ``ReconciliationRecord`` to the database with details.
     """
     # 1. SHA-256
     file_hash = hashlib.sha256(file_content).hexdigest()
@@ -81,15 +81,36 @@ async def process_reconciliation_file(
     # 3-4. Match
     result = await _match_rows(rows, session)
 
-    # 5. Save
+    # 5. Save with details
+    # Convert Decimal to string for JSON serialization
+    def _serialize_item(item: dict) -> dict:
+        return {
+            "row": item["row"],
+            "draft_number": item["draft_number"],
+            "expected_amount": str(item["expected_amount"]),
+            "actual_amount": str(item["actual_amount"]),
+            "reason": item["reason"],
+            "status": "unmatched",
+        }
+
+    details = {
+        "matched": [
+            {"draft_number": row.get("draft_number", ""), "amount": row.get("amount", "")}
+            for row in rows
+            if row.get("draft_number") in [u["draft_number"] for u in result.unmatched] is False
+        ],
+        "unmatched": [_serialize_item(u) for u in result.unmatched],
+    }
+
     record = await recon_repo.create(
         file_name=file_name,
         file_path=f"memory://{file_name}",
         file_hash=file_hash,
         total_records=result.total,
         matched_count=result.matched,
-        unmatched_count=result.unmatched,
-        status="completed" if not result.unmatched else "completed",
+        unmatched_count=len(result.unmatched),
+        details=details,
+        status="completed",
         uploaded_by=uploaded_by,
     )
     await session.commit()

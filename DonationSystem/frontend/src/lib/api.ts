@@ -323,6 +323,26 @@ export const api = {
     return request('PUT', '/admin/settings', input, getToken());
   },
 
+  // ── Admin: Audit Logs ──
+  async adminGetAuditLogs(params?: {
+    level?: string;
+    category?: string;
+    limit?: number;
+  }): Promise<{
+    data: any[];
+    total: number;
+    has_more: boolean;
+  }> {
+    return request('GET', `/audit/logs${qs(params || {})}`, undefined, getToken());
+  },
+
+  async adminGetErrorCount(minutes?: number): Promise<{
+    minutes: number;
+    error_count: number;
+  }> {
+    return request('GET', `/audit/errors/count${minutes ? `?minutes=${minutes}` : ''}`, undefined, getToken());
+  },
+
   // ── Admin: Tax ──
   async adminGetTaxSummary(year: number): Promise<any> {
     return request('GET', `/admin/tax/summary/${year}`, undefined, getToken());

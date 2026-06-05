@@ -43,6 +43,7 @@ const adminItems: SidebarItem[] = [
   { label: '對帳管理', href: '/admin/reconciliation', icon: <ScrollText className="w-5 h-5" /> },
   { label: '稅務報表', href: '/admin/tax', icon: <FileText className="w-5 h-5" /> },
   { label: '系統設定', href: '/admin/settings', icon: <Settings className="w-5 h-5" /> },
+  { label: '操作紀錄', href: '/admin/audit-logs', icon: <ScrollText className="w-5 h-5" /> },
 ];
 
 // Donation maintainer sidebar items (limited access)
